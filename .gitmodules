@@ -9,4 +9,5 @@
 	url = https://github.com/slaclab/aes-stream-drivers
 [submodule "firmware/submodules/axi-soc-7000-core"]
 	path = firmware/submodules/axi-soc-7000-core
-	url = https://github.com/burbschat/axi-soc-7000-core
+    #url = https://github.com/burbschat/axi-soc-7000-core
+	url = git@github.com:burbschat/axi-soc-7000-core.git
