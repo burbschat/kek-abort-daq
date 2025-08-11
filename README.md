@@ -1,1 +1,159 @@
 nothing here yet
+
+# Notes
+## Petalinux build failing debug notes
+Petalinux build fails with 
+
+```
+ERROR: axistreamdma-1.0-r0 do_compile: oe_runmake failed
+ERROR: axistreamdma-1.0-r0 do_compile: ExecutionError('/home/user/kekb-abort-daq/firmware/build/petalinux/abort-trigger-daq-rpty-stmlb-125-14/build/tmp/work/zynq_generic_7z010-xilinx-linux-gnueabi/axistreamdma/1.0/temp/run.do_compile.246706', 1, None, None)
+ERROR: Logfile of failure stored in: /home/user/kekb-abort-daq/firmware/build/petalinux/abort-trigger-daq-rpty-stmlb-125-14/build/tmp/work/zynq_generic_7z010-xilinx-linux-gnueabi/axistreamdma/1.0/temp/log.do_compile.246706
+
+...
+
+ERROR: Task (/home/user/kekb-abort-daq/firmware/build/petalinux/abort-trigger-daq-rpty-stmlb-125-14/project-spec/meta-user/recipes-modules/axistreamdma/axistreamdma.bb:do_compile) failed with exit code '1'
+```
+But nevertheless generates an image?
+```
+****** Bootgen v2024.2
+  **** Build date : Oct 21 2024-10:58:34
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2024 Advanced Micro Devices, Inc. All Rights Reserved.
+
+
+[INFO]   : Bootimage generated successfully
+
+
+[INFO] Binary is ready.
+[INFO] Successfully Generated BIN File
+[WARNING] Unable to access the TFTPBOOT folder /tftpboot!!!
+[WARNING] Skip file copy to TFTPBOOT folder!!!
+########################################################################
+Release File List: linux/system.bit linux/BOOT.BIN linux/image.ub linux/boot.scr
+########################################################################
+petalinux.tar.gz image path: /home/user/vivado_projects/rpty_test/main_wrapper.petalinux.tar.gz
+########################################################################
+```
+
+Compile log errors are
+```
+/home/user/kekb-abort-daq/firmware/build/petalinux/abort-trigger-daq-rpty-stmlb-125-14/build/tmp/work/zynq_generic_7z010-xilinx-linux-gnueabi/axistreamdma/1.0/axistreamdma.c:267:7: error: implicit declaration of function 'set_dma_ops' [-Werror=implicit-function-declaration]
+  267 |       set_dma_ops(&pdev->dev, &arm_coherent_dma_ops);
+      |       ^~~~~~~~~~~
+/home/user/kekb-abort-daq/firmware/build/petalinux/abort-trigger-daq-rpty-stmlb-125-14/build/tmp/work/zynq_generic_7z010-xilinx-linux-gnueabi/axistreamdma/1.0/axistreamdma.c:267:32: error: 'arm_coherent_dma_ops' undeclared (first use in this function)
+  267 |       set_dma_ops(&pdev->dev, &arm_coherent_dma_ops);
+      |                                ^~~~~~~~~~~~~~~~~~~~
+```
+
+The problem seems to be a call to `set_dma_ops` in `./firmware/submodules/aes-stream-drivers/petalinux/axistreamdma/files/axistreamdma.c:267`
+
+The code is enclosed by `#if !defined(__aarch64__)` so is only used if we are *not* on a 64 bit arm.
+
+`set_dma_ops` is defined in `<linux/dma-map-ops.h>`, but that does not seem to
+be included in `axistreamdma.c`. The only occurence I can find is in
+`./firmware/submodules/aes-stream-drivers/rce_stream/driver/src/rce_top.c`,
+which is **not** a header file. 
+`<rce_top.h>` is included in `axistreamdma.c`.
+
+Quite suspiciously in `rce_top.c` there is essentially the same code calling `set_dma_ops` as in `axistreamdma.c`. So probably someone just forgot to include the header?
+Let's try!
+
+Copy over
+```c
+#include <linux/version.h>
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
+#include <linux/dma-map-ops.h>
+#endif
+```
+
+This resolves part of the issue, however the
+```
+/home/user/kekb-abort-daq/firmware/build/petalinux/abort-trigger-daq-rpty-stmlb-125-14/build/tmp/work/zynq_generic_7z010-xilinx-linux-gnueabi/axistreamdma/1.0/axistreamdma.c:272:32: error: 'arm_coherent_dma_ops' undeclared (first use in this function)
+  272 |       set_dma_ops(&pdev->dev, &arm_coherent_dma_ops);
+      |                                ^~~~~~~~~~~~~~~~~~~~
+```
+part still remains.
+
+`EXPORT_SYMBOL(arm_coherent_dma_ops);` appears in `https://github.com/torvalds/linux/blob/master/arch/arm/mm/dma-mapping.c`, but not on the recent versions of the kernel!
+It seems to be there in `3.7.1` (not neccessarily the newest version where it still exists).
+
+Seems `EXPORT_SYMBOL(arm_coherent_dma_ops);` was removed in `ae626eb97376148bb63c3f3ca9517fde0f39bec3`
+of the linux kernel.
+
+The commit reads
+```
+commit ae626eb97376148bb63c3f3ca9517fde0f39bec3
+Author: Christoph Hellwig <hch@lst.de>
+Date:   Tue Apr 19 10:28:28 2022 +0200
+
+    ARM/dma-mapping: use dma-direct unconditionally
+    
+    Use dma-direct unconditionally on arm.  It has already been used for
+    some time for LPAE and nommu configurations.
+    
+    This mostly changes the streaming mapping implementation and the (simple)
+    coherent allocator for device that are DMA coherent.  The existing
+    complex allocator for uncached mappings for non-coherent devices is still
+    used as is using the arch_dma_alloc/arch_dma_free hooks.
+```
+
+Seems like the passed `ops` were removed
+```diff
+-       set_dma_ops(dev, arm_get_dma_map_ops(dev->archdata.dma_coherent));
++       set_dma_ops(dev, NULL);
+```
+while now there is an argument `bool coherent` 
+```diff
+-static bool arm_setup_iommu_dma_ops(struct device *dev, u64 dma_base, u64 size,
+-                                   const struct iommu_ops *iommu)
++static void arm_setup_iommu_dma_ops(struct device *dev, u64 dma_base, u64 size,
++                                   const struct iommu_ops *iommu, bool coherent)
+```
+This again changes in `f091e933`
+```diff
+-static void arm_setup_iommu_dma_ops(struct device *dev, u64 dma_base, u64 size,
+-				    bool coherent)
++static void arm_setup_iommu_dma_ops(struct device *dev)
+```
+The commit reads
+```
+f091e933 Robin Murphy (2024-04-20 01:54):
+dma-mapping: Simplify arch_setup_dma_ops()
+
+The dma_base, size and iommu arguments are only used by ARM, and can
+now easily be deduced from the device itself, so there's no need to pass
+them through the callchain as well.
+```
+which leads me to suspect that we perhaps do not need to specify coherent ops at all?
+Hm on closer look perhaps we now want to call `arch_setup_dma_ops` instead of passing the `arm_coherent_dma_ops` struct directly to `set_dma_ops`.
+```diff
+-      set_dma_ops(&pdev->dev, &arm_coherent_dma_ops);
++      arch_setup_dma_ops(&pdev->dev, true);
+```
+This also does not work.
+```
+/home/user/kekb-abort-daq/firmware/build/petalinux/abort-trigger-daq-rpty-stmlb-125-14/build/tmp/work/zynq_generic_7z010-xilinx-linux-gnueabi/axistreamdma/1.0/axistreamdma.c:273:7: error: too few arguments to function 'arch_setup_dma_ops'
+  273 |       arch_setup_dma_ops(&pdev->dev, true);
+```
+To few arguments it seems.
+Ok apparently Petalinux 2024.2 (which we use here) uses a Linux kernel based on v6.6.
+Checking the `linux/arch/arc/mm/dma.c` for 6.6 indeed there is a different signature than what I
+had assumed based on the newest kernel release.
+```c
+void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
+			const struct iommu_ops *iommu, bool coherent);
+```
+Looking at the kernel code, the extra arguemnts appear unused (at least in v6.6).
+So it is probably fine if we just pass `NULL` for them.
+```c
+arch_setup_dma_ops(&pdev->dev, NULL, NULL, NULL, true);
+```
+Still does not work.
+```
+ERROR: modpost: "arch_setup_dma_ops" [/home/user/kekb-abort-daq/firmware/build/petalinux/abort-trigger-daq-rpty-stmlb-125-14/build/tmp/work/zynq_generic_7z010-xilinx-linux-gnueabi/axistreamdma/1.0/axi_stream_dma.ko] undefined!
+```
+See [this](https://www.linuxquestions.org/questions/linux-kernel-70/building-module-modpost-error-4175691724/).
+Seem like we import all the needed headers? But still we never `EXPORT_SYMBOL(arch_setup_dma_ops)`...
+Let's just try not calling the setup dma ops.
+**That worked!**
