@@ -19,6 +19,7 @@ use unisim.vcomponents.all;
 entity AbortTriggerDaqRptyStmlb125_14 is
 -- generic();
     port (
+        -- Ports forwared from CPU
         DDR_cas_n         : inout std_logic;
         DDR_cke           : inout std_logic;
         DDR_ck_n          : inout std_logic;
@@ -39,19 +40,34 @@ entity AbortTriggerDaqRptyStmlb125_14 is
         FIXED_IO_ddr_vrp  : inout std_logic;
         FIXED_IO_ps_srstb : inout std_logic;
         FIXED_IO_ps_clk   : inout std_logic;
-        FIXED_IO_ps_porb  : inout std_logic
+        FIXED_IO_ps_porb  : inout std_logic;
+        -- ADC clock inputs
+        adc_clk_p_i       : in    sl;
+        adc_clk_n_i       : in    sl
         );
 end entity AbortTriggerDaqRptyStmlb125_14;
 
 architecture top_level of AbortTriggerDaqRptyStmlb125_14 is
 
+    signal adc_clk : sl;
+
 begin
+
+    -----------------------
+    -- Top level clock generation
+    -----------------------
+    U_IBUFDS : IBUFDS
+        port map(
+            I  => adc_clk_p_i,
+            IB => adc_clk_n_i,
+            O  => adc_clk);
 
     -----------------------
     -- Common Platform Core
     -----------------------
     U_core : entity axi_soc_7000_core.AxiSoc7000Core
         port map(
+            -- Ports forwarded from CPU
             DDR_addr(14 downto 0)     => DDR_addr(14 downto 0),
             DDR_ba(2 downto 0)        => DDR_ba(2 downto 0),
             DDR_cas_n                 => DDR_cas_n,
@@ -72,7 +88,9 @@ begin
             FIXED_IO_mio(53 downto 0) => FIXED_IO_mio(53 downto 0),
             FIXED_IO_ps_clk           => FIXED_IO_ps_clk,
             FIXED_IO_ps_porb          => FIXED_IO_ps_porb,
-            FIXED_IO_ps_srstb         => FIXED_IO_ps_srstb
+            FIXED_IO_ps_srstb         => FIXED_IO_ps_srstb,
+            -- Global clock synchronous to ADC clock
+            pl_clk => adc_clk
             );
 
 end architecture top_level;
