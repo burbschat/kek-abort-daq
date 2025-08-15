@@ -53,9 +53,9 @@ architecture top_level of AbortTriggerDaqRptyStmlb125_14 is
 
 begin
 
-    -----------------------
+    -----------------------------
     -- Top level clock generation
-    -----------------------
+    -----------------------------
     U_IBUFDS : IBUFDS
         port map(
             I  => adc_clk_p_i,
@@ -90,7 +90,9 @@ begin
             FIXED_IO_ps_porb          => FIXED_IO_ps_porb,
             FIXED_IO_ps_srstb         => FIXED_IO_ps_srstb,
             -- Global clock synchronous to ADC clock
-            pl_clk => adc_clk
+            pl_clk                    => adc_clk,
+            -- Reset (for now assert low)
+            reset                     => '0'
             );
 
 end architecture top_level;
