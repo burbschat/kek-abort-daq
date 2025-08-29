@@ -17,7 +17,10 @@ library unisim;
 use unisim.vcomponents.all;
 
 entity AbortTriggerDaqRptyStmlb125_14 is
--- generic();
+    generic(
+        TPD_G        : time := 1 ns;
+        BUILD_INFO_G : BuildInfoType
+        );
     port (
         -- Ports forwared from CPU
         DDR_cas_n         : inout std_logic;
@@ -66,6 +69,10 @@ begin
     -- Common Platform Core
     -----------------------
     U_core : entity axi_soc_7000_core.AxiSoc7000Core
+        generic map (
+            TPD_G        => TPD_G,
+            BUILD_INFO_G => BUILD_INFO_G
+            )
         port map(
             -- Ports forwarded from CPU
             DDR_addr(14 downto 0)     => DDR_addr(14 downto 0),
