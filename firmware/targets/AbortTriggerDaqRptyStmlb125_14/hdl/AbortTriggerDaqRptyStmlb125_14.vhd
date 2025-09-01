@@ -45,8 +45,8 @@ entity AbortTriggerDaqRptyStmlb125_14 is
         FIXED_IO_ps_clk   : inout std_logic;
         FIXED_IO_ps_porb  : inout std_logic;
         -- ADC clock inputs
-        adc_clk_p_i       : in    sl;
-        adc_clk_n_i       : in    sl
+        adcClkP       : in    sl;
+        adcClkN       : in    sl
         );
 end entity AbortTriggerDaqRptyStmlb125_14;
 
@@ -61,8 +61,8 @@ begin
     -----------------------------
     U_IBUFDS : IBUFDS
         port map(
-            I  => adc_clk_p_i,
-            IB => adc_clk_n_i,
+            I  => adcClkP,
+            IB => adcClkN,
             O  => adc_clk);
 
     -----------------------
