@@ -18,6 +18,9 @@ txBuffCnt=16
 # Define DMA Buffer Size
 buffSize=0x100000 # 1MB
 
+# Select whether to use ramdisk or root on SD-card
+fsRamdisk=false
+
 ####################################################
 
 if [ $# -ne 1 ]
@@ -43,4 +46,5 @@ buildPath=$basePath/build/Yocto
 # Execute the build Yocto script
 ../../submodules/axi-soc-7000-core/BuildYoctoProject.sh \
 -p $buildPath -n $targetName -x $xsaPath -h $hwType \
--l $numLane -d $numDest -t $txBuffCnt -r $rxBuffCnt -s $buffSize
+-l $numLane -d $numDest -t $txBuffCnt -r $rxBuffCnt -s $buffSize \
+-f $fsRamdisk
