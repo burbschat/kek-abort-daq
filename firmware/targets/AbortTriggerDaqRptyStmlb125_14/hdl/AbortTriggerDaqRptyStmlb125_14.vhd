@@ -120,7 +120,7 @@ begin
             )
         port map (
             pl_clk => adc_clk,
-            led => led_o(0)
+            leds => led_o
             );
 
 end architecture top_level;

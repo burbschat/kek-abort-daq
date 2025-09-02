@@ -24,25 +24,22 @@ entity Application is
         );
     port (
         pl_clk : in  sl;
-        led    : out sl
+        leds    : out slv(7 downto 0)
         );
 end Application;
 
 architecture mapping of Application is
 
-    signal led_state : sl              := '0';
     signal count     : slv(31 downto 0) := (others => '0');
 
 begin
-
-    led <= led_state;
 
     process(pl_clk)
     begin
         if rising_edge(pl_clk) then
             count <= count + 1;
             -- At 125MHz the 26th bit should give visible LED blinking
-            led_state <= count(26);
+            leds <= count(26 downto 26 - 7);
         end if;
     end process;
 
