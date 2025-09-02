@@ -45,14 +45,21 @@ entity AbortTriggerDaqRptyStmlb125_14 is
         FIXED_IO_ps_clk   : inout std_logic;
         FIXED_IO_ps_porb  : inout std_logic;
         -- ADC clock inputs
-        adcClkP       : in    sl;
-        adcClkN       : in    sl
+        adcClkP           : in    sl;
+        adcClkN           : in    sl;
+        -- LEDs
+        led_o             : out   slv(7 downto 0)
         );
 end entity AbortTriggerDaqRptyStmlb125_14;
 
 architecture top_level of AbortTriggerDaqRptyStmlb125_14 is
 
     signal adc_clk : sl;
+
+    constant NUM_AXIL_MASTERS_C : positive := 3;
+
+    -- TODO: Make sure this is correct!
+    --  constant AXIL_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXIL_MASTERS_C-1 downto 0) := genAxiLiteConfig(NUM_AXIL_MASTERS_C, APP_ADDR_OFFSET_C, 31, 28);
 
 begin
 
@@ -100,6 +107,20 @@ begin
             pl_clk                    => adc_clk,
             -- Reset (for now assert low)
             reset                     => '0'
+            );
+
+    --------------
+    -- Application
+    --------------
+
+    U_App : entity work.Application
+        generic map (
+            TPD_G => TPD_G
+         -- AXIL_BASE_ADDR_G => AXIL_CONFIG_C(APP_INDEX_C).baseAddr
+            )
+        port map (
+            pl_clk => adc_clk,
+            led => led_o(0)
             );
 
 end architecture top_level;
