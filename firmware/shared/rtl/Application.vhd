@@ -39,7 +39,7 @@ begin
         if rising_edge(pl_clk) then
             count <= count + 1;
             -- At 125MHz the 26th bit should give visible LED blinking
-            leds <= count(26 downto 26 - 7);
+            leds <= count(29 downto 29 - 7);
         end if;
     end process;
 
