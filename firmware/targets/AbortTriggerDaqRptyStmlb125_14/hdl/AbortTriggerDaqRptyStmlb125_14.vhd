@@ -61,6 +61,11 @@ architecture top_level of AbortTriggerDaqRptyStmlb125_14 is
     -- TODO: Make sure this is correct!
     --  constant AXIL_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXIL_MASTERS_C-1 downto 0) := genAxiLiteConfig(NUM_AXIL_MASTERS_C, APP_ADDR_OFFSET_C, 31, 28);
 
+    signal axilWriteMaster : AxiLiteWriteMasterType;
+    signal axilWriteSlave  : AxiLiteWriteSlaveType;
+    signal axilReadMaster  : AxiLiteReadMasterType;
+    signal axilReadSlave   : AxiLiteReadSlaveType;
+
 begin
 
     -----------------------------
@@ -106,7 +111,12 @@ begin
             -- Global clock synchronous to ADC clock
             pl_clk                    => adc_clk,
             -- Reset (for now assert low)
-            reset                     => '0'
+            reset                     => '0',
+            -- Application AXI-Lite Interfaces [0x6000_0000:0x7FFF_FFFF] (TODO: appClk domain?)
+            appReadMaster             => axilReadMaster,
+            appReadSlave              => axilReadSlave,
+            appWriteMaster            => axilWriteMaster,
+            appWriteSlave             => axilWriteSlave
             );
 
     --------------
@@ -119,8 +129,13 @@ begin
          -- AXIL_BASE_ADDR_G => AXIL_CONFIG_C(APP_INDEX_C).baseAddr
             )
         port map (
-            pl_clk => adc_clk,
-            leds => led_o
+            pl_clk          => adc_clk,
+            leds            => led_o,
+            -- AXI-Lite Interface (TODO: axilClk domain?)
+            axilWriteMaster => axilWriteMaster,
+            axilWriteSlave  => axilWriteSlave,
+            axilReadMaster  => axilReadMaster,
+            axilReadSlave   => axilReadSlave
             );
 
 end architecture top_level;

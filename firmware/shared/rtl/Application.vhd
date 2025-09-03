@@ -23,23 +23,38 @@ entity Application is
      -- AXIL_BASE_ADDR_G : slv(31 downto 0)
         );
     port (
-        pl_clk : in  sl;
-        leds    : out slv(7 downto 0)
+        pl_clk          : in  sl;
+        leds            : out slv(7 downto 0);
+        -- AXI-Lite Interface (TODO: axilClk domain?)
+        axilWriteMaster : in  AxiLiteWriteMasterType;
+        axilWriteSlave  : out AxiLiteWriteSlaveType;
+        axilReadMaster  : in  AxiLiteReadMasterType;
+        axilReadSlave   : out AxiLiteReadSlaveType
         );
 end Application;
 
 architecture mapping of Application is
 
-    signal count     : slv(31 downto 0) := (others => '0');
+    signal count : slv(31 downto 0) := (others => '0');
 
 begin
 
+    -- Some static registers for testing
+    U_REG_STATIC : entity axi_soc_7000_core.AxiTestRegister
+        port map(
+            pl_clk          => pl_clk,
+            axilReadMaster  => axilReadMaster,
+            axilReadSlave   => axilReadSlave,
+            axilWriteMaster => axilWriteMaster,
+            axilWriteSlave  => axilWriteSlave);
+
+    -- LED blinking
     process(pl_clk)
     begin
         if rising_edge(pl_clk) then
             count <= count + 1;
             -- At 125MHz the 26th bit should give visible LED blinking
-            leds <= count(29 downto 29 - 7);
+            leds  <= count(29 downto 29 - 7);
         end if;
     end process;
 
