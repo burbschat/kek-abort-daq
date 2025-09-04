@@ -48,7 +48,10 @@ entity AbortTriggerDaqRptyStmlb125_14 is
         adcClkP           : in    sl;
         adcClkN           : in    sl;
         -- LEDs
-        led_o             : out   slv(7 downto 0)
+        led_o             : out   slv(7 downto 0);
+        -- ADC data lines
+        adc_dat_a_i       : in    slv(15 downto 0);
+        adc_dat_b_i       : in    slv(15 downto 0)
         );
 end entity AbortTriggerDaqRptyStmlb125_14;
 
@@ -135,7 +138,12 @@ begin
             axilWriteMaster => axilWriteMaster,
             axilWriteSlave  => axilWriteSlave,
             axilReadMaster  => axilReadMaster,
-            axilReadSlave   => axilReadSlave
+            axilReadSlave   => axilReadSlave,
+            -- ADC data lines (there no control input to the ADCs, so there
+            -- only is the data stream, thus directly pipe it into the
+            -- Application)
+            adcDatA         => adc_dat_a_i,
+            adcDatB         => adc_dat_b_i
             );
 
 end architecture top_level;

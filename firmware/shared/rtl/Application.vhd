@@ -29,7 +29,10 @@ entity Application is
         axilWriteMaster : in  AxiLiteWriteMasterType;
         axilWriteSlave  : out AxiLiteWriteSlaveType;
         axilReadMaster  : in  AxiLiteReadMasterType;
-        axilReadSlave   : out AxiLiteReadSlaveType
+        axilReadSlave   : out AxiLiteReadSlaveType;
+        -- ADC data lines
+        adcDatA         : in  slv(15 downto 0);
+        adcDatB         : in  slv(15 downto 0)
         );
 end Application;
 
@@ -52,9 +55,11 @@ begin
     process(pl_clk)
     begin
         if rising_edge(pl_clk) then
-            count <= count + 1;
+            -- count <= count + 1;
             -- At 125MHz the 26th bit should give visible LED blinking
-            leds  <= count(29 downto 29 - 7);
+            -- leds  <= count(29 downto 29 - 7);
+            -- Display ADC A Data bits on LEDs
+            leds <= adcDatA(7 downto 0);
         end if;
     end process;
 
