@@ -1,3 +1,4 @@
 firmware/build
 firmware/**/images
 firmware/**/build.info
+/**/__pycache__
