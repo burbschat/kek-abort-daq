@@ -30,6 +30,11 @@ entity Application is
         axilWriteSlave  : out AxiLiteWriteSlaveType;
         axilReadMaster  : in  AxiLiteReadMasterType;
         axilReadSlave   : out AxiLiteReadSlaveType;
+        -- DMA Interface (TODO: dmaClk domain?)
+        -- dmaClk          : in  sl;
+        -- dmaRst          : in  sl;
+        dmaIbMaster     : out AxiStreamMasterType;
+        dmaIbSlave      : in  AxiStreamSlaveType;
         -- ADC data lines
         adcDatA         : in  slv(15 downto 0);
         adcDatB         : in  slv(15 downto 0)
