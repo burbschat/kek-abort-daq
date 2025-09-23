@@ -56,15 +56,22 @@ begin
             axilWriteMaster => axilWriteMaster,
             axilWriteSlave  => axilWriteSlave);
 
+    dmaIbMaster.tValid <= '1';          -- Always valid for testing
+
     -- LED blinking
     process(pl_clk)
     begin
         if rising_edge(pl_clk) then
-            -- count <= count + 1;
+            count <= count + 1;
+
             -- At 125MHz the 26th bit should give visible LED blinking
             -- leds  <= count(29 downto 29 - 7);
+
             -- Display ADC A Data bits on LEDs
             leds <= adcDatA(7 downto 0);
+
+            -- Try to transmit counter through stream interface
+            dmaIbMaster.tData(31 downto 0) <= count;
         end if;
     end process;
 
