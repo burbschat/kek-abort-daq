@@ -12,7 +12,7 @@ numLane=1
 numDest=12
 
 # Define number of DMA TX/RX Buffers
-rxBuffCnt=1280
+rxBuffCnt=64
 txBuffCnt=16
 
 # Define DMA Buffer Size

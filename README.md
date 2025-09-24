@@ -157,3 +157,35 @@ See [this](https://www.linuxquestions.org/questions/linux-kernel-70/building-mod
 Seem like we import all the needed headers? But still we never `EXPORT_SYMBOL(arch_setup_dma_ops)`...
 Let's just try not calling the setup dma ops.
 **That worked!**
+
+## Loading the driver
+```sh
+insmod /lib/modules/6.12.10-xilinx-g297834623cf6/updates/axi_stream_dma.ko
+```
+i.e. no parameters on command line gives `dmesg` output
+```
+axi_stream_dma: Probe: Using index 0 for axi_stream_dma_0.
+axi_stream_dma b0000000.axi_stream_dma_0: Init: Mapping Register space 0xb0000000 with size 0x10000.
+axi_stream_dma b0000000.axi_stream_dma_0: Init: Mapped to 0xffffffffe09f0000.
+axi_stream_dma b0000000.axi_stream_dma_0: Init: Creating device class
+axi_stream_dma b0000000.axi_stream_dma_0: Init: Creating 16 TX Buffers. Size=1048576 Bytes. Mode=1.
+axi_stream_dma b0000000.axi_stream_dma_0: Init: Created  16 out of 16 TX Buffers. 16777216 Bytes.
+axi_stream_dma b0000000.axi_stream_dma_0: Init: Creating 1280 RX Buffers. Size=1048576 Bytes. Mode=1.
+cma: __cma_alloc: reserved: alloc failed, req-size: 256 pages, ret: -12
+cma: number of available pages: 187@69=> 187 free of 32768 total pages
+axi_stream_dma b0000000.axi_stream_dma_0: dmaAllocBuffers: Failed to create stream buffer and dma mapping.
+axi_stream_dma b0000000.axi_stream_dma_0: Init: Created  0 out of 1280 RX Buffers. 0 Bytes.
+axi_stream_dma b0000000.axi_stream_dma_0: probe with driver axi_stream_dma failed with error -1
+```
+But there is no 1280 in the code!?
+Well, its inserted by the Yocto build script (search and replace)...
+Ok, so the number is correct and it really is the compiled in default value.
+
+Btw. too many buffers simply won't fit the measly 128 MB I've allocated for the
+shared dma pool (in device tree).
+
+We can also pass the parameters when loading the kernel module like
+```sh
+insmod /lib/modules/6.12.10-xilinx-g297834623cf6/updates/axi_stream_dma.ko cfgRxCount0=8 cfgTxCount0=8
+```
+RX 64 TX 16 will fit. RX 128 is too much. As we use mainly RX, RX 64 TX 16 should be fine.
