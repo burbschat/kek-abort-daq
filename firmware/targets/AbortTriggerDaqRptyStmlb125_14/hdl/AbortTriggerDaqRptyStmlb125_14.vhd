@@ -69,6 +69,14 @@ architecture top_level of AbortTriggerDaqRptyStmlb125_14 is
     signal axilReadMaster  : AxiLiteReadMasterType;
     signal axilReadSlave   : AxiLiteReadSlaveType;
 
+    signal dmaBuffGrpPause : slv(7 downto 0);  -- Not used/required?
+    -- Outbound (from CPU to PL)
+    signal dmaObMasters    : AxiStreamMasterArray(DMA_SIZE_C-1 downto 0) := (others => AXI_STREAM_MASTER_INIT_C);
+    signal dmaObSlaves     : AxiStreamSlaveArray(DMA_SIZE_C-1 downto 0)  := (others => AXI_STREAM_SLAVE_FORCE_C);
+    -- Inbound (from PL to CPU)
+    signal dmaIbMasters    : AxiStreamMasterArray(DMA_SIZE_C-1 downto 0) := (others => AXI_STREAM_MASTER_INIT_C);
+    signal dmaIbSlaves     : AxiStreamSlaveArray(DMA_SIZE_C-1 downto 0)  := (others => AXI_STREAM_SLAVE_FORCE_C);
+
 begin
 
     -----------------------------
@@ -119,7 +127,15 @@ begin
             appReadMaster             => axilReadMaster,
             appReadSlave              => axilReadSlave,
             appWriteMaster            => axilWriteMaster,
-            appWriteSlave             => axilWriteSlave
+            appWriteSlave             => axilWriteSlave,
+            -- DMA Interfaces  (dmaClk domain)
+            -- dmaClk                    => dmaClk, -- TODO: For now unified global clk/reset
+            -- dmaRst                    => dmaRst,
+            dmaBuffGrpPause           => dmaBuffGrpPause,
+            dmaObMasters              => dmaObMasters,
+            dmaObSlaves               => dmaObSlaves,
+            dmaIbMasters              => dmaIbMasters,
+            dmaIbSlaves               => dmaIbSlaves
             );
 
     --------------
@@ -139,6 +155,9 @@ begin
             axilWriteSlave  => axilWriteSlave,
             axilReadMaster  => axilReadMaster,
             axilReadSlave   => axilReadSlave,
+            -- DMA Interface
+            dmaIbMaster     => dmaIbMasters(0),
+            dmaIbSlave      => dmaIbSlaves(0),
             -- ADC data lines (there no control input to the ADCs, so there
             -- only is the data stream, thus directly pipe it into the
             -- Application)
