@@ -9,7 +9,7 @@ hwType=RedPitayaStemlab125-14
 numLane=1
 
 # Define number of DEST per DMA lane
-numDest=12
+numDest=1
 
 # Define number of DMA TX/RX Buffers
 rxBuffCnt=64
