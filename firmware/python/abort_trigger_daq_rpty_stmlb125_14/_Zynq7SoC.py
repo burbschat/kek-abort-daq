@@ -10,10 +10,11 @@ class Zynq7SoC(pr.Device):
 
         self.add(socCore.AxiSocCore(
             offset      = 0x0000_0000,
+            hidden      = False,
         ))
 
-        # self.add(target.Application(
-        #     offset  = 0xA000_0000,
-        #     expand  = True,
-        #     enabled = False, # Do not configure until after DSP clock stable
-        # ))
+        self.add(target.Application(
+            offset  = 0x2000_0000,
+            expand  = True,
+            enabled = True, 
+        ))

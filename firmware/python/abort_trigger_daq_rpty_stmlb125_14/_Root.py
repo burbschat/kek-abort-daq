@@ -74,5 +74,26 @@ class Root(pr.Root):
             )
         )
 
+        ##################################################################################
+        ##                              Data Path
+        ##################################################################################
+
+        # Create rogue stream arrays
+        if ip != None:
+            self.testStream = stream.TcpClient(ip,10000)
+        else:
+            self.testStream = rogue.hardware.axi.AxiStreamDma('/dev/axi_stream_dma_0', 0,  True)
+
+        self.testStreamDropFifo = pr.interfaces.stream.Fifo(name=f'TestStreamDropFifo', maxDepth=1, hidden=False) # Drop if more than 1 frame in FIFO
+
+        self.add(self.testStreamDropFifo)
+
+        # Connect test stream
+        self.testStream >> self.dataWriter.getChannel(0)
+        self.testStream >> self.testStreamDropFifo
+
     def start(self,**kwargs):
         super(Root, self).start(**kwargs)
+
+        # Read all registers once on init
+        self.ReadAll()
