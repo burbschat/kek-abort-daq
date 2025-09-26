@@ -19,8 +19,8 @@ use axi_soc_7000_core.AxiSoc7000Pkg.all;
 
 entity Application is
     generic (
-        TPD_G : time := 1 ns
-     -- AXIL_BASE_ADDR_G : slv(31 downto 0)
+        TPD_G            : time := 1 ns;
+        AXIL_BASE_ADDR_G : slv(31 downto 0)
         );
     port (
         pl_clk          : in  sl;
@@ -43,20 +43,65 @@ end Application;
 
 architecture mapping of Application is
 
+    constant NUM_AXIL_MASTERS_C : natural := 2;
+    constant AXIL_TEST_INDEX    : natural := 0;
+    constant AXIL_RING_INDEX    : natural := 1;
+
+    -- TODO: What should the base bits be for genAxiLiteConfig? Set using global constants?
+    -- constant AXIL_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXIL_MASTERS_C-1 downto 0) := genAxiLiteConfig(NUM_AXIL_MASTERS_C, AXIL_BASE_ADDR_G, 28, 24);
+    -- For now, be explicit:
+    -- TODO: See if I can get around specifying all 32 address bits as we don't care about the upper ones (I think)
+    constant AXIL_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXIL_MASTERS_C-1 downto 0) := (
+        AXIL_TEST_INDEX  => (
+            baseAddr     => AXIL_BASE_ADDR_G + x"0000_0000",  -- Relative to app offset applied by crossbar in reg module in core? But still have to give correct address as all bits are compared???
+            addrBits     => 24,
+            connectivity => x"FFFF"),
+        AXIL_RING_INDEX  => (
+            baseAddr     => AXIL_BASE_ADDR_G + x"0100_0000",
+            addrBits     => 24,
+            connectivity => x"FFFF")
+        );
+
+    signal axilReadMasters  : AxiLiteReadMasterArray(NUM_AXIL_MASTERS_C-1 downto 0);
+    signal axilReadSlaves   : AxiLiteReadSlaveArray(NUM_AXIL_MASTERS_C-1 downto 0)  := (others => AXI_LITE_READ_SLAVE_EMPTY_DECERR_C);
+    signal axilWriteMasters : AxiLiteWriteMasterArray(NUM_AXIL_MASTERS_C-1 downto 0);
+    signal axilWriteSlaves  : AxiLiteWriteSlaveArray(NUM_AXIL_MASTERS_C-1 downto 0) := (others => AXI_LITE_WRITE_SLAVE_EMPTY_DECERR_C);
+
     signal count : slv(31 downto 0) := (others => '0');
 
+    signal ringBuffTrig : sl := '0';
+
 begin
+
+    U_XBAR : entity surf.AxiLiteCrossbar
+        generic map (
+            TPD_G              => TPD_G,
+            NUM_SLAVE_SLOTS_G  => 1,
+            NUM_MASTER_SLOTS_G => NUM_AXIL_MASTERS_C,
+            MASTERS_CONFIG_G   => AXIL_CONFIG_C)
+        port map (
+            axiClk              => pl_clk,
+            axiClkRst           => '0',
+            sAxiWriteMasters(0) => axilWriteMaster,
+            sAxiWriteSlaves(0)  => axilWriteSlave,
+            sAxiReadMasters(0)  => axilReadMaster,
+            sAxiReadSlaves(0)   => axilReadSlave,
+            mAxiWriteMasters    => axilWriteMasters,
+            mAxiWriteSlaves     => axilWriteSlaves,
+            mAxiReadMasters     => axilReadMasters,
+            mAxiReadSlaves      => axilReadSlaves);
 
     -- Some static registers for testing
     U_REG_STATIC : entity axi_soc_7000_core.AxiTestRegister
         port map(
             pl_clk          => pl_clk,
-            axilReadMaster  => axilReadMaster,
-            axilReadSlave   => axilReadSlave,
-            axilWriteMaster => axilWriteMaster,
-            axilWriteSlave  => axilWriteSlave);
+            axilReadMaster  => axilReadMasters(AXIL_TEST_INDEX),
+            axilReadSlave   => axilReadSlaves(AXIL_TEST_INDEX),
+            axilWriteMaster => axilWriteMasters(AXIL_TEST_INDEX),
+            axilWriteSlave  => axilWriteSlaves(AXIL_TEST_INDEX)
+            );
 
-    dmaIbMaster.tValid <= '1';          -- Always valid for testing
+    -- dmaIbMaster.tValid <= '1';          -- Always valid for testing
 
     -- LED blinking
     process(pl_clk)
@@ -70,9 +115,44 @@ begin
             -- Display ADC A Data bits on LEDs
             leds <= adcDatA(7 downto 0);
 
-            -- Try to transmit counter through stream interface
-            dmaIbMaster.tData(31 downto 0) <= count;
+        -- -- Try to transmit counter through stream interface
+        -- dmaIbMaster.tData(31 downto 0) <= count;
         end if;
     end process;
+
+    ringBuffTrig <= count(12);
+
+    U_AxiStreamRingBuffer : entity surf.AxiStreamRingBuffer
+        generic map (
+            TPD_G               => TPD_G,
+            SYNTH_MODE_G        => "xpm",
+            MEMORY_TYPE_G       => "block",
+            COMMON_CLK_G        => true,    -- For now all on synchronous clock
+            DATA_BYTES_G        => (32/8),  -- 32 bit (4 byte) to read the counter for testing
+            RAM_ADDR_WIDTH_G    => 6,   -- Decides size of the buffer
+            -- AXI Stream Configurations
+            FIFO_MEMORY_TYPE_G  => "block",
+            FIFO_ADDR_WIDTH_G   => 9,
+            GEN_SYNC_FIFO_G     => false,
+            AXI_STREAM_CONFIG_G => DMA_AXIS_CONFIG_C)
+        port map (
+            -- Data to store in ring buffer (dataClk domain)
+            dataClk         => pl_clk,
+            dataValid       => '1',
+            dataValue       => count,
+            extTrig         => ringBuffTrig,
+            -- AXI-Lite interface (axilClk domain)
+            axilClk         => pl_clk,
+            axilRst         => '0',
+            axilReadMaster  => axilReadMasters(AXIL_RING_INDEX),
+            axilReadSlave   => axilReadSlaves(AXIL_RING_INDEX),
+            axilWriteMaster => axilWriteMasters(AXIL_RING_INDEX),
+            axilWriteSlave  => axilWriteSlaves(AXIL_RING_INDEX),
+            -- AXI-Stream Interface (axisClk domain)
+            axisClk         => pl_clk,
+            axisRst         => '0',
+            axisMaster      => dmaIbMaster,
+            axisSlave       => dmaIbSlave
+            );
 
 end mapping;

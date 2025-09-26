@@ -1,5 +1,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
+use ieee.std_logic_arith.all;
+use ieee.std_logic_unsigned.all;
 
 library surf;
 use surf.StdRtlPkg.all;
@@ -141,11 +143,13 @@ begin
     --------------
     -- Application
     --------------
-
     U_App : entity work.Application
         generic map (
-            TPD_G => TPD_G
-         -- AXIL_BASE_ADDR_G => AXIL_CONFIG_C(APP_INDEX_C).baseAddr
+            TPD_G            => TPD_G,
+            -- If there was another crossbar at the top module we may reference
+            -- the baseAddr from there but for now there is non, so must set the
+            -- (full 32 bits) of base addres here manually.
+            AXIL_BASE_ADDR_G => AXIL_REG_BASE_ADDR_C + APP_ADDR_OFFSET_C  -- AXIL_CONFIG_C(APP_INDEX_C).baseAddr  -- Global base + offset should be 0x6000_0000
             )
         port map (
             pl_clk          => adc_clk,
