@@ -103,6 +103,8 @@ begin
 
     -- dmaIbMaster.tValid <= '1';          -- Always valid for testing
 
+    ringBuffTrig <= count(29-7+2);
+
     -- LED blinking
     process(pl_clk)
     begin
@@ -110,17 +112,17 @@ begin
             count <= count + 1;
 
             -- At 125MHz the 26th bit should give visible LED blinking
-            -- leds  <= count(29 downto 29 - 7);
+            leds <= count(29 downto 29 - 7);
 
             -- Display ADC A Data bits on LEDs
-            leds <= adcDatA(7 downto 0);
+            -- leds(7 downto 1) <= adcDatA(7 downto 1);
+            leds(0) <= ringBuffTrig;
+            leds(1) <= ringBuffTrig;
 
         -- -- Try to transmit counter through stream interface
         -- dmaIbMaster.tData(31 downto 0) <= count;
         end if;
     end process;
-
-    ringBuffTrig <= count(12);
 
     U_AxiStreamRingBuffer : entity surf.AxiStreamRingBuffer
         generic map (
@@ -140,7 +142,7 @@ begin
             dataClk         => pl_clk,
             dataValid       => '1',
             dataValue       => count,
-            extTrig         => ringBuffTrig,
+            extTrig         => '0',
             -- AXI-Lite interface (axilClk domain)
             axilClk         => pl_clk,
             axilRst         => '0',
