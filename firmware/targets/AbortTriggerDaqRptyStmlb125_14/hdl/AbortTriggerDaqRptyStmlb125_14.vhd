@@ -79,6 +79,8 @@ architecture top_level of AbortTriggerDaqRptyStmlb125_14 is
     signal dmaIbMasters    : AxiStreamMasterArray(DMA_SIZE_C-1 downto 0) := (others => AXI_STREAM_MASTER_INIT_C);
     signal dmaIbSlaves     : AxiStreamSlaveArray(DMA_SIZE_C-1 downto 0)  := (others => AXI_STREAM_SLAVE_FORCE_C);
 
+    signal pl_rst : sl := '0';
+
 begin
 
     -----------------------------
@@ -123,8 +125,8 @@ begin
             FIXED_IO_ps_srstb         => FIXED_IO_ps_srstb,
             -- Global clock synchronous to ADC clock
             pl_clk                    => adc_clk,
-            -- Reset (for now assert low)
-            reset                     => '0',
+            -- PL global Reset (output from the core, commanded by user via register)
+            pl_rst                    => pl_rst,
             -- Application AXI-Lite Interfaces [0x6000_0000:0x7FFF_FFFF] (TODO: appClk domain?)
             appReadMaster             => axilReadMaster,
             appReadSlave              => axilReadSlave,
@@ -152,19 +154,23 @@ begin
             AXIL_BASE_ADDR_G => AXIL_REG_BASE_ADDR_C + APP_ADDR_OFFSET_C  -- AXIL_CONFIG_C(APP_INDEX_C).baseAddr  -- Global base + offset should be 0x6000_0000
             )
         port map (
-            pl_clk          => adc_clk,
             leds            => led_o,
             -- AXI-Lite Interface (TODO: axilClk domain?)
+            axilClk         => adc_clk,
+            axilRst         => pl_rst,
             axilWriteMaster => axilWriteMaster,
             axilWriteSlave  => axilWriteSlave,
             axilReadMaster  => axilReadMaster,
             axilReadSlave   => axilReadSlave,
             -- DMA Interface
+            axisClk         => adc_clk,
+            axisRst         => pl_rst,
             dmaIbMaster     => dmaIbMasters(0),
             dmaIbSlave      => dmaIbSlaves(0),
             -- ADC data lines (there no control input to the ADCs, so there
             -- only is the data stream, thus directly pipe it into the
             -- Application)
+            adcClk          => adc_clk,
             adcDatA         => adc_dat_a_i,
             adcDatB         => adc_dat_b_i
             );

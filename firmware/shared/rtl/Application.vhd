@@ -23,19 +23,21 @@ entity Application is
         AXIL_BASE_ADDR_G : slv(31 downto 0)
         );
     port (
-        pl_clk          : in  sl;
         leds            : out slv(7 downto 0);
-        -- AXI-Lite Interface (TODO: axilClk domain?)
+        -- AXI-Lite Interface (TODO: axilClk domain? Actually make sure different domains would work!)
+        axilClk         : in  sl;
+        axilRst         : in  sl;
         axilWriteMaster : in  AxiLiteWriteMasterType;
         axilWriteSlave  : out AxiLiteWriteSlaveType;
         axilReadMaster  : in  AxiLiteReadMasterType;
         axilReadSlave   : out AxiLiteReadSlaveType;
-        -- DMA Interface (TODO: dmaClk domain?)
-        -- dmaClk          : in  sl;
-        -- dmaRst          : in  sl;
+        -- Stream interface to DMA (TODO: axisClk domain? Actually make sure different domains would work!)
+        axisClk         : in  sl;
+        axisRst         : in  sl;
         dmaIbMaster     : out AxiStreamMasterType;
         dmaIbSlave      : in  AxiStreamSlaveType;
         -- ADC data lines
+        adcClk          : in  sl;
         adcDatA         : in  slv(15 downto 0);
         adcDatB         : in  slv(15 downto 0)
         );
@@ -80,8 +82,8 @@ begin
             NUM_MASTER_SLOTS_G => NUM_AXIL_MASTERS_C,
             MASTERS_CONFIG_G   => AXIL_CONFIG_C)
         port map (
-            axiClk              => pl_clk,
-            axiClkRst           => '0',
+            axiClk              => axilClk,
+            axiClkRst           => axilRst,
             sAxiWriteMasters(0) => axilWriteMaster,
             sAxiWriteSlaves(0)  => axilWriteSlave,
             sAxiReadMasters(0)  => axilReadMaster,
@@ -94,21 +96,19 @@ begin
     -- Some static registers for testing
     U_REG_STATIC : entity axi_soc_7000_core.AxiTestRegister
         port map(
-            pl_clk          => pl_clk,
+            axilClk         => axilClk,
             axilReadMaster  => axilReadMasters(AXIL_TEST_INDEX),
             axilReadSlave   => axilReadSlaves(AXIL_TEST_INDEX),
             axilWriteMaster => axilWriteMasters(AXIL_TEST_INDEX),
             axilWriteSlave  => axilWriteSlaves(AXIL_TEST_INDEX)
             );
 
-    -- dmaIbMaster.tValid <= '1';          -- Always valid for testing
-
     ringBuffTrig <= count(29-7+2);
 
     -- LED blinking
-    process(pl_clk)
+    process(axilClk)
     begin
-        if rising_edge(pl_clk) then
+        if rising_edge(axilClk) then
             count <= count + 1;
 
             -- At 125MHz the 26th bit should give visible LED blinking
@@ -119,8 +119,6 @@ begin
             leds(0) <= ringBuffTrig;
             leds(1) <= ringBuffTrig;
 
-        -- -- Try to transmit counter through stream interface
-        -- dmaIbMaster.tData(31 downto 0) <= count;
         end if;
     end process;
 
@@ -129,30 +127,30 @@ begin
             TPD_G               => TPD_G,
             SYNTH_MODE_G        => "xpm",
             MEMORY_TYPE_G       => "block",
-            COMMON_CLK_G        => true,    -- For now all on synchronous clock
+            COMMON_CLK_G        => true,  -- For now all on synchronous clock! TODO: Change if clocks ever are non synchronous (I will forget this)
             DATA_BYTES_G        => (32/8),  -- 32 bit (4 byte) to read the counter for testing
-            RAM_ADDR_WIDTH_G    => 6,   -- Decides size of the buffer
+            RAM_ADDR_WIDTH_G    => 6,  -- Decides size of the buffer (2**6=64 entries)
             -- AXI Stream Configurations
             FIFO_MEMORY_TYPE_G  => "block",
             FIFO_ADDR_WIDTH_G   => 9,
-            GEN_SYNC_FIFO_G     => false,
+            GEN_SYNC_FIFO_G     => true,  -- For now all on synchronous clock! TODO: Change if clocks ever are non synchronous (I will forget this)
             AXI_STREAM_CONFIG_G => DMA_AXIS_CONFIG_C)
         port map (
             -- Data to store in ring buffer (dataClk domain)
-            dataClk         => pl_clk,
-            dataValid       => '1',
-            dataValue       => count,
+            dataClk         => adcClk,
+            dataValid       => '1',     -- Always valid 
+            dataValue       => count,  -- Counter for testing, put ADC data eventually
             extTrig         => '0',
             -- AXI-Lite interface (axilClk domain)
-            axilClk         => pl_clk,
-            axilRst         => '0',
+            axilClk         => axilClk,
+            axilRst         => axilRst,
             axilReadMaster  => axilReadMasters(AXIL_RING_INDEX),
             axilReadSlave   => axilReadSlaves(AXIL_RING_INDEX),
             axilWriteMaster => axilWriteMasters(AXIL_RING_INDEX),
             axilWriteSlave  => axilWriteSlaves(AXIL_RING_INDEX),
             -- AXI-Stream Interface (axisClk domain)
-            axisClk         => pl_clk,
-            axisRst         => '0',
+            axisClk         => axisClk,
+            axisRst         => axisRst,
             axisMaster      => dmaIbMaster,
             axisSlave       => dmaIbSlave
             );
