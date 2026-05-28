@@ -1,6 +1,17 @@
 nothing here yet
 
 # Notes
+
+## Manually loading kernel drivers/firmware
+```sh
+fpgautil -b /boot/system.bin 
+insmod /lib/modules/$(uname -r)/updates/axi_memory_map.ko plMinAddr=0x40000000 plMaxAddr=0x0b0010000
+# Debug version can be loaded as well from wherever it is located...
+insmod ./axi_stream_dma.ko cfgRxCount0=32 cfgTxCount0=16
+
+insmod ./axi_stream_dma_extradebug_noforceirq.ko cfgRxCount0=32 cfgTxCount0=16
+```
+
 ## Petalinux build failing debug notes
 Petalinux build fails with 
 

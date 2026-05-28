@@ -6,6 +6,7 @@ import rogue.interfaces.memory
 
 import pyrogue as pr
 import pyrogue.protocols
+import pyrogue.interfaces.stream
 import pyrogue.utilities.fileio
 import pyrogue.utilities.prbs
 
@@ -91,6 +92,13 @@ class Root(pr.Root):
         # Connect test stream
         self.testStream >> self.dataWriter.getChannel(0)
         self.testStream >> self.testStreamDropFifo
+
+        # Debug Slave
+        self.dbg = rogue.interfaces.stream.Slave()
+        # Set debug mode for first 100 bytes, with name myDebug
+        self.dbg.setDebug(2048*8,"myDebug")
+        # Add the debug slave as a second slave
+        self.testStream >> self.dbg
 
     def start(self,**kwargs):
         super(Root, self).start(**kwargs)
