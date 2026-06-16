@@ -10,6 +10,7 @@ insmod /lib/modules/$(uname -r)/updates/axi_memory_map.ko plMinAddr=0x40000000 p
 insmod ./axi_stream_dma.ko cfgRxCount0=32 cfgTxCount0=16
 
 insmod ./axi_stream_dma_extradebug_noforceirq.ko cfgRxCount0=32 cfgTxCount0=16
+insmod /lib/modules/$(uname -r)/updates/axi_stream_dma.ko plMinAddr=0x40000000 plMaxAddr=0x0b0010000
 ```
 
 ## Petalinux build failing debug notes
