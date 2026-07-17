@@ -94,11 +94,15 @@ class Root(pr.Root):
         self.testStream >> self.testStreamDropFifo
 
         # Debug Slave
-        self.dbg = rogue.interfaces.stream.Slave()
+        # self.dbg = rogue.interfaces.stream.Slave()
         # Set debug mode for first 100 bytes, with name myDebug
-        self.dbg.setDebug(2048*8,"myDebug")
+        # self.dbg.setDebug(2048*8,"myDebug")
         # Add the debug slave as a second slave
-        self.testStream >> self.dbg
+        # self.testStreamDropFifo >> self.dbg
+
+        self.test_processor = target.TestProcessor()
+        self.add(self.test_processor)
+        self.testStreamDropFifo >> self.test_processor
 
     def start(self,**kwargs):
         super(Root, self).start(**kwargs)
