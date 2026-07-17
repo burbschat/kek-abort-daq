@@ -13,4 +13,5 @@ docker run -ti \
    --net=host \
    -v /etc/localtime:/etc/localtime:ro \
    -v $home:/home \
+   -v /srv/yocto:/srv/yocto \
    $dockerName:latest /bin/bash
