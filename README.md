@@ -1,7 +1,4 @@
-nothing here yet
-
 # Notes
-
 ## Manually loading kernel drivers/firmware
 ```sh
 fpgautil -b /boot/system.bin 
@@ -10,8 +7,64 @@ insmod /lib/modules/$(uname -r)/updates/axi_memory_map.ko plMinAddr=0x40000000 p
 insmod ./axi_stream_dma.ko cfgRxCount0=32 cfgTxCount0=16
 
 insmod ./axi_stream_dma_extradebug_noforceirq.ko cfgRxCount0=32 cfgTxCount0=16
-insmod /lib/modules/$(uname -r)/updates/axi_stream_dma.ko plMinAddr=0x40000000 plMaxAddr=0x0b0010000
+
+insmod /lib/modules/$(uname -r)/updates/axi_stream_dma.ko cfgTxCount0=16 cfgRxCount0=64 cfgSize0=0x100000
+insmod /lib/modules/$(uname -r)/updates/axi_stream_dma.ko cfgTxCount0=16 cfgRxCount0=84 cfgSize0=0x100000
+
+# Actually like this?
+insmod /lib/modules/$(uname -r)/updates/axi_memory_map.ko plMinAddr=0x40000000 plMaxAddr=0x0b0100000
+insmod /lib/modules/$(uname -r)/updates/axi_stream_dma.ko cfgTxCount0=16 cfgRxCount0=84 cfgSize0=0x100000
 ```
+Still must address the buffer count error from rogue (more than 84 + 16 triggers this one).
+
+```
+0x040000000  # AXIL base
+0x0b0010000  # DMA AXIL base
+```
+
+## DMA Axi interface settings
+### US+
+Basic:
+```
+Protocol: AXI4
+Data Width: 128 (Related to desc128=1?)
+Addr Width: 49
+Max Burst Length: 64
+Num Write Outstanding: 16
+Num Read Outstanding: 16
+Supports Narrow Burst: 0
+Id Width: 6
+Read Write Mode: READ WRITE
+```
+User Signals
+```
+Buser Width: 0
+Ruser Width: 0
+Wuser Width: 0
+Aruser Width: 1
+Awuser Width: 1
+```
+Advanced
+```
+Has BURST: 1
+Has LOCK: 1
+Has CACHE: 1
+Has PROT: 1
+Has QOS: 1
+Has REGION: 0
+Has WSTRB: 0
+Has BRESP: 0
+Has RRESP: 0
+Number of Read threads: 1
+Number of Write threads: 1
+Number of RUSER bits per byte: 0
+Number of WUSER bits per byte: 0
+```
+
+## Why use `RxBufferCount` (fixed value) in `runThread()`?
+Seems to leads to always 100 buffers requested leading the driver to crash if
+number of rx+tx buffers is less than hard coded value (100).
+
 
 ## Petalinux build failing debug notes
 Petalinux build fails with 
