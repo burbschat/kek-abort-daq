@@ -19,6 +19,8 @@ txBuffCnt=16
 buffSize=0x100000 # 1MB
 
 # Select whether to use ramdisk or root on SD-card
+# Ramdisk might not work as if the image is too large it won't fit
+# into memory leading to a kernel-panic on boot.
 fsRamdisk=false
 
 ####################################################
