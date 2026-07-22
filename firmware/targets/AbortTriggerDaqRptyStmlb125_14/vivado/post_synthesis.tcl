@@ -103,21 +103,21 @@ ConfigProbe ${ilaName} {U_core/U_DMA/dmaIrq}
 
 # DMA AXI signals
 # With Read/Write path Mux
-# ConfigProbe ${ilaName} {U_core/U_DMA/U_WritePathMux/sAxiWriteMasters[*]*}
-# ConfigProbe ${ilaName} {U_core/U_DMA/U_WritePathMux/sAxiWriteSlaves[*]*}
-# ConfigProbe ${ilaName} {U_core/U_DMA/U_WritePathMux/mAxiWriteMaster[*]*}
-# ConfigProbe ${ilaName} {U_core/U_DMA/U_WritePathMux/mAxiWriteSlave[*]*}
-#
-# ConfigProbe ${ilaName} {U_core/U_DMA/U_ReadPathMux/sAxiReadMasters[*]*}
-# ConfigProbe ${ilaName} {U_core/U_DMA/U_ReadPathMux/sAxiReadSlaves[*]*}
-# ConfigProbe ${ilaName} {U_core/U_DMA/U_ReadPathMux/mAxiReadMaster[*]*}
-# ConfigProbe ${ilaName} {U_core/U_DMA/U_ReadPathMux/mAxiReadSlave[*]*}
+ConfigProbe ${ilaName} {U_core/U_DMA/U_WritePathMux/sAxiWriteMasters[*]*}
+ConfigProbe ${ilaName} {U_core/U_DMA/U_WritePathMux/sAxiWriteSlaves[*]*}
+ConfigProbe ${ilaName} {U_core/U_DMA/U_WritePathMux/mAxiWriteMaster[*]*}
+ConfigProbe ${ilaName} {U_core/U_DMA/U_WritePathMux/mAxiWriteSlave[*]*}
+
+ConfigProbe ${ilaName} {U_core/U_DMA/U_ReadPathMux/sAxiReadMasters[*]*}
+ConfigProbe ${ilaName} {U_core/U_DMA/U_ReadPathMux/sAxiReadSlaves[*]*}
+ConfigProbe ${ilaName} {U_core/U_DMA/U_ReadPathMux/mAxiReadMaster[*]*}
+ConfigProbe ${ilaName} {U_core/U_DMA/U_ReadPathMux/mAxiReadSlave[*]*}
 #
 # Without Read/Write path Mux
-ConfigProbe ${ilaName} {U_core/U_DMA/axiWriteMaster[*]*}
-ConfigProbe ${ilaName} {U_core/U_DMA/axiWriteSlave[*]*}
-ConfigProbe ${ilaName} {U_core/U_DMA/axiReadMaster[*]*}
-ConfigProbe ${ilaName} {U_core/U_DMA/axiReadSlave[*]*}
+# ConfigProbe ${ilaName} {U_core/U_DMA/axiWriteMaster[*]*}
+# ConfigProbe ${ilaName} {U_core/U_DMA/axiWriteSlave[*]*}
+# ConfigProbe ${ilaName} {U_core/U_DMA/axiReadMaster[*]*}
+# ConfigProbe ${ilaName} {U_core/U_DMA/axiReadSlave[*]*}
 
 ##########################
 ## Write the port map file
