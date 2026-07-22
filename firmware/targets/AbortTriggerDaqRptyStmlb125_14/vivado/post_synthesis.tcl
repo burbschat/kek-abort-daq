@@ -118,6 +118,9 @@ ConfigProbe ${ilaName} {U_core/U_DMA/U_ReadPathMux/mAxiReadSlave[*]*}
 # ConfigProbe ${ilaName} {U_core/U_DMA/axiWriteSlave[*]*}
 # ConfigProbe ${ilaName} {U_core/U_DMA/axiReadMaster[*]*}
 # ConfigProbe ${ilaName} {U_core/U_DMA/axiReadSlave[*]*}
+#
+# AXI-Lite bus used by descriptor
+ConfigProbe ${ilaName} {U_core/REAL_CPU.U_CPU/U_CPU/axi_dmactrl_*}
 
 ##########################
 ## Write the port map file
