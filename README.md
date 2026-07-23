@@ -8,19 +8,22 @@ insmod ./axi_stream_dma.ko cfgRxCount0=32 cfgTxCount0=16
 
 insmod ./axi_stream_dma_extradebug_noforceirq.ko cfgRxCount0=32 cfgTxCount0=16
 
-insmod /lib/modules/$(uname -r)/updates/axi_stream_dma.ko cfgTxCount0=16 cfgRxCount0=64 cfgSize0=0x100000
-insmod /lib/modules/$(uname -r)/updates/axi_stream_dma.ko cfgTxCount0=16 cfgRxCount0=84 cfgSize0=0x100000
-
-# Actually like this?
-insmod /lib/modules/$(uname -r)/updates/axi_memory_map.ko plMinAddr=0x40000000 plMaxAddr=0x0b0100000
-insmod /lib/modules/$(uname -r)/updates/axi_stream_dma.ko cfgTxCount0=16 cfgRxCount0=84 cfgSize0=0x100000
+# Actually like this (four! zeros/Fs)?
+insmod /lib/modules/$(uname -r)/updates/axi_memory_map.ko plMinAddr=0x40000000 plMaxAddr=0x0b000FFFF
+insmod /lib/modules/$(uname -r)/updates/axi_stream_dma.ko cfgTxCount0=16 cfgRxCount0=84 cfgSize0=0x10000
 ```
-Still must address the buffer count error from rogue (more than 84 + 16 triggers this one).
 
 ```
 0x040000000  # AXIL base
 0x0b0010000  # DMA AXIL base
 ```
+
+Still must address the buffer count error from rogue (more than 84 + 16 triggers this one).
+
+Seems like the descriptor path through the muxes is not even used (at least in
+the current configuration). DMA (at least write) worked without it hooked up
+and all the related signals appear optimized away (not available for ILA).
+
 
 ## DMA Axi interface settings
 ### US+
