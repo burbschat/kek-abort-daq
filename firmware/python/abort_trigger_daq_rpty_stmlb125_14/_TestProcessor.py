@@ -22,5 +22,9 @@ class TestProcessor(pr.DataReceiver):
     def process(self, frame):
         with self.root.updateGroup():
             # Convert the frame data into a numpy 16-bit integer array
-            dat = frame.getNumpy(0, frame.getPayload()).view(np.uint32)
+            # ADCs give left aligned 16 bit values with 14 active bits (lower
+            # two are fixed to 0) with 0 input corresponding to half range.
+            # There should be a flag settable over SPI(?) for the adc to output
+            # twos complement if required.
+            dat = frame.getNumpy(0, frame.getPayload()).view(np.uint16)
             print(dat)
