@@ -128,8 +128,8 @@ begin
             SYNTH_MODE_G        => "xpm",
             MEMORY_TYPE_G       => "block",
             COMMON_CLK_G        => true,  -- For now all on synchronous clock! TODO: Change if clocks ever are non synchronous (I will forget this)
-            DATA_BYTES_G        => (32/8),  -- 32 bit (4 byte) to read the counter for testing
-            RAM_ADDR_WIDTH_G    => 6,  -- Decides size of the buffer (2**6=64 entries)
+            DATA_BYTES_G        => 2,   -- 16 bit (2 byte) per clock from ADC
+            RAM_ADDR_WIDTH_G    => 13,  -- Decides size of the buffer (2**13=8192 words)
             -- AXI Stream Configurations
             FIFO_MEMORY_TYPE_G  => "block",
             FIFO_ADDR_WIDTH_G   => 9,
@@ -139,7 +139,7 @@ begin
             -- Data to store in ring buffer (dataClk domain)
             dataClk         => adcClk,
             dataValid       => '1',     -- Always valid 
-            dataValue       => count,  -- Counter for testing, put ADC data eventually
+            dataValue       => adcDatA,   -- ADC channel A
             extTrig         => '0',
             -- AXI-Lite interface (axilClk domain)
             axilClk         => axilClk,
