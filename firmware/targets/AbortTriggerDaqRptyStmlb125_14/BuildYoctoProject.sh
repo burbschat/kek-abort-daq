@@ -12,6 +12,7 @@ numLane=1
 numDest=1
 
 # Define number of DMA TX/RX Buffers
+# TODO: Resolve rogue error when tx buffers + rx buffers > 100
 rxBuffCnt=64
 txBuffCnt=16
 

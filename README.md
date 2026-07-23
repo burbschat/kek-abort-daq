@@ -24,6 +24,25 @@ Seems like the descriptor path through the muxes is not even used (at least in
 the current configuration). DMA (at least write) worked without it hooked up
 and all the related signals appear optimized away (not available for ILA).
 
+Not sure if DMA address space should/can be moved into the AXIL address range.
+As of now we just map a non-existing range as 
+```
+plMinAddr=0x40000000 plMaxAddr=0x0b000FFFF
+```
+and the AXIL range goes up to `0x7FFFFFFF` so `0x80000000` to `0x0aFFFFFFF` is
+empty. Nothing seems to break/crash though when accessing this range so I guess
+this is fine.
+
+Nevermind, the dma driver does not even require the memory map driver. Probably
+accesses the memory directly.
+Range is set in the device tree:
+```
+	axi_stream_dma_0@b0000000 {
+		compatible = "axi_stream_dma";
+		reg = <0xb0000000 0x10000>;
+		interrupts = <0 29 4>;
+...
+```
 
 ## DMA Axi interface settings
 ### US+
