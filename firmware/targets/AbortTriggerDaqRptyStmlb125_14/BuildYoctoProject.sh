@@ -12,12 +12,16 @@ numLane=1
 numDest=1
 
 # Define number of DMA TX/RX Buffers
-# TODO: Resolve rogue error when tx buffers + rx buffers > 100
-rxBuffCnt=64
+# TODO: Resolve errors like (apparently from rogue so a upstream problem?)
+# Read: attempted to read too many buffers. rCnt=100 > max=48
+# 84 and 16 for whatever reason work.
+rxBuffCnt=84
 txBuffCnt=16
 
 # Define DMA Buffer Size
-buffSize=0x100000 # 1MB
+# TODO: I guess we want a larger buffer if possible? Must match what is set in
+# device tree, which currently is 0x10000
+buffSize=0x10000 # 64KiB
 
 # Select whether to use ramdisk or root on SD-card
 # Ramdisk might not work as if the image is too large it won't fit
