@@ -13,6 +13,7 @@ import pyrogue.utilities.prbs
 import abort_trigger_daq_rpty_stmlb125_14 as target
 # import axi_soc_7000_core.hardware.HW_HERE as zynq_hw
 import axi_soc_7000_core as soc_core
+import axi_soc_7000_core.hardware.red_pitaya_stemlab_125_14 as hardware_core
 
 rogue.Version.minVersion("6.5.0")
 
@@ -93,6 +94,10 @@ class Root(pr.Root):
         self.testStream >> self.dataWriter.getChannel(0)
         self.testStream >> self.testStreamDropFifo
 
+        self.ring_processor = hardware_core.RingBufferProcessor(name=f"AdcProcessor[0]", sampleRate=125e6)
+        self.add(self.ring_processor)
+        self.testStreamDropFifo >> self.ring_processor
+
         # Debug Slave
         # self.dbg = rogue.interfaces.stream.Slave()
         # Set debug mode for first 100 bytes, with name myDebug
@@ -100,6 +105,7 @@ class Root(pr.Root):
         # Add the debug slave as a second slave
         # self.testStreamDropFifo >> self.dbg
 
+        # Test (debug) slave
         self.test_processor = target.TestProcessor()
         self.add(self.test_processor)
         self.testStreamDropFifo >> self.test_processor
