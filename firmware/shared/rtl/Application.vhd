@@ -20,18 +20,17 @@ use axi_soc_7000_core.AxiSoc7000Pkg.all;
 entity Application is
     generic (
         TPD_G            : time := 1 ns;
-        AXIL_BASE_ADDR_G : slv(31 downto 0)
-        );
+        AXIL_BASE_ADDR_G : slv(31 downto 0));
     port (
         leds            : out slv(7 downto 0);
-        -- AXI-Lite Interface (TODO: axilClk domain? Actually make sure different domains would work!)
+        -- AXI-Lite Interface (top module appClk domain, this module axilClk domain)
         axilClk         : in  sl;
         axilRst         : in  sl;
         axilWriteMaster : in  AxiLiteWriteMasterType;
         axilWriteSlave  : out AxiLiteWriteSlaveType;
         axilReadMaster  : in  AxiLiteReadMasterType;
         axilReadSlave   : out AxiLiteReadSlaveType;
-        -- Stream interface to DMA (TODO: axisClk domain? Actually make sure different domains would work!)
+        -- Stream interface to DMA (top module dmaClk domain, this module axisClk domain)
         axisClk         : in  sl;
         axisRst         : in  sl;
         dmaIbMaster     : out AxiStreamMasterType;
@@ -127,19 +126,19 @@ begin
             TPD_G               => TPD_G,
             SYNTH_MODE_G        => "xpm",
             MEMORY_TYPE_G       => "block",
-            COMMON_CLK_G        => true,  -- For now all on synchronous clock! TODO: Change if clocks ever are non synchronous (I will forget this)
+            COMMON_CLK_G        => false,  -- In this design in general axisClk is not same as axilClk (see top module)
             DATA_BYTES_G        => 2,   -- 16 bit (2 byte) per clock from ADC
             RAM_ADDR_WIDTH_G    => 13,  -- Decides size of the buffer (2**13=8192 words)
             -- AXI Stream Configurations
             FIFO_MEMORY_TYPE_G  => "block",
             FIFO_ADDR_WIDTH_G   => 9,
-            GEN_SYNC_FIFO_G     => true,  -- For now all on synchronous clock! TODO: Change if clocks ever are non synchronous (I will forget this)
+            GEN_SYNC_FIFO_G     => false,  -- In this design in general axisClk is not same as axilClk (see top module)
             AXI_STREAM_CONFIG_G => DMA_AXIS_CONFIG_C)
         port map (
             -- Data to store in ring buffer (dataClk domain)
             dataClk         => adcClk,
             dataValid       => '1',     -- Always valid 
-            dataValue       => adcDatA,   -- ADC channel A
+            dataValue       => adcDatA,    -- ADC channel A
             extTrig         => '0',
             -- AXI-Lite interface (axilClk domain)
             axilClk         => axilClk,

@@ -59,12 +59,11 @@ end entity AbortTriggerDaqRptyStmlb125_14;
 
 architecture top_level of AbortTriggerDaqRptyStmlb125_14 is
 
-    signal adc_clk : sl;
+    signal adcClk : sl;
 
-    constant NUM_AXIL_MASTERS_C : positive := 3;
-
-    -- TODO: Make sure this is correct!
-    --  constant AXIL_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXIL_MASTERS_C-1 downto 0) := genAxiLiteConfig(NUM_AXIL_MASTERS_C, APP_ADDR_OFFSET_C, 31, 28);
+    -- For now there is no crossbar in this module...
+    -- constant NUM_AXIL_MASTERS_C : positive := 3;
+    -- constant AXIL_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXIL_MASTERS_C-1 downto 0) := genAxiLiteConfig(NUM_AXIL_MASTERS_C, APP_ADDR_OFFSET_C, 31, 28);
 
     signal axilWriteMaster : AxiLiteWriteMasterType;
     signal axilWriteSlave  : AxiLiteWriteSlaveType;
@@ -79,29 +78,46 @@ architecture top_level of AbortTriggerDaqRptyStmlb125_14 is
     signal dmaIbMasters    : AxiStreamMasterArray(DMA_SIZE_C-1 downto 0) := (others => AXI_STREAM_MASTER_INIT_C);
     signal dmaIbSlaves     : AxiStreamSlaveArray(DMA_SIZE_C-1 downto 0)  := (others => AXI_STREAM_SLAVE_FORCE_C);
 
-    signal pl_rst : sl := '0';
+    -- Clocks
+    signal auxClk     : sl;             -- Aux clock, output from core module
+    signal auxRst     : sl;
+    signal appClk     : sl;  -- Used by application, also input into core module
+    signal appRst     : sl;
+    signal appUserRst : sl;
+    signal dmaClk     : sl;  -- Used by DMA, also in application, output from core module
+    signal dmaRst     : sl;
 
 begin
+    -------------------
+    -- Clock Assignment
+    -------------------
+    -- appClk is auxClk from the core (100 MHz).
+    -- Could use the adc clock as the app clock (125 MHz) to make processing
+    -- of ADC data easier? Would have to synchronize the resets in that case.
+    appClk <= auxClk;
+    appRst <= auxRst or appUserRst;
 
-    -----------------------------
-    -- Top level clock generation
-    -----------------------------
+    -------------------
+    -- ADC Clock Buffer
+    -------------------
+    -- Obtain single ended clock signal from the differential one
     U_IBUFDS : IBUFDS
         port map(
             I  => adcClkP,
             IB => adcClkN,
-            O  => adc_clk);
+            O  => adcClk);
 
     -----------------------
     -- Common Platform Core
     -----------------------
     U_core : entity axi_soc_7000_core.AxiSoc7000Core
         generic map (
-            TPD_G        => TPD_G,
-            BUILD_INFO_G => BUILD_INFO_G
+            TPD_G                => TPD_G,
+            BUILD_INFO_G         => BUILD_INFO_G,
+            COMMON_AUX_APP_CLK_G => false  -- appClk = auxClk?
             )
         port map(
-            -- Ports forwarded from CPU
+            -- DDR ports connected to CPU
             DDR_addr(14 downto 0)     => DDR_addr(14 downto 0),
             DDR_ba(2 downto 0)        => DDR_ba(2 downto 0),
             DDR_cas_n                 => DDR_cas_n,
@@ -123,24 +139,34 @@ begin
             FIXED_IO_ps_clk           => FIXED_IO_ps_clk,
             FIXED_IO_ps_porb          => FIXED_IO_ps_porb,
             FIXED_IO_ps_srstb         => FIXED_IO_ps_srstb,
-            -- Global clock synchronous to ADC clock
-            pl_clk                    => adc_clk,
-            -- PL global Reset (output from the core, commanded by user via register)
-            pl_rst                    => pl_rst,
-            -- Application AXI-Lite Interfaces [0x6000_0000:0x7FFF_FFFF] (TODO: appClk domain?)
-            appReadMaster             => axilReadMaster,
-            appReadSlave              => axilReadSlave,
-            appWriteMaster            => axilWriteMaster,
-            appWriteSlave             => axilWriteSlave,
+
+            -- ADC Clock and Reset Monitoring
+            adcClk => adcClk,
+            -- LTC2145CUP-14 does not seem to have some sort of reset output, so 
+            -- can't really assign a sensible reset here.
+            adcRst => '0',
+
+            -- AUX Clock and Reset
+            auxClk => auxClk,           -- 100 MHz
+            auxRst => auxRst,
+
+            -- Application AXI-Lite Interfaces [0x6000_0000:0x7FFF_FFFF] (appClk domain)
+            appClk         => appClk,  -- Input, the user decides the frequency
+            appRst         => appRst,
+            appUserRst     => appUserRst,
+            appReadMaster  => axilReadMaster,
+            appReadSlave   => axilReadSlave,
+            appWriteMaster => axilWriteMaster,
+            appWriteSlave  => axilWriteSlave,
+
             -- DMA Interfaces  (dmaClk domain)
-            -- dmaClk                    => dmaClk, -- TODO: For now unified global clk/reset
-            -- dmaRst                    => dmaRst,
-            dmaBuffGrpPause           => dmaBuffGrpPause,
-            dmaObMasters              => dmaObMasters,
-            dmaObSlaves               => dmaObSlaves,
-            dmaIbMasters              => dmaIbMasters,
-            dmaIbSlaves               => dmaIbSlaves
-            );
+            dmaClk          => dmaClk,  -- 125 MHz
+            dmaRst          => dmaRst,
+            dmaBuffGrpPause => dmaBuffGrpPause,
+            dmaObMasters    => dmaObMasters,
+            dmaObSlaves     => dmaObSlaves,
+            dmaIbMasters    => dmaIbMasters,
+            dmaIbSlaves     => dmaIbSlaves);
 
     --------------
     -- Application
@@ -155,24 +181,23 @@ begin
             )
         port map (
             leds            => led_o,
-            -- AXI-Lite Interface (TODO: axilClk domain?)
-            axilClk         => adc_clk,
-            axilRst         => pl_rst,
+            -- AXI-Lite Interface (appClk domain)
+            axilClk         => appClk,
+            axilRst         => appRst,
             axilWriteMaster => axilWriteMaster,
             axilWriteSlave  => axilWriteSlave,
             axilReadMaster  => axilReadMaster,
             axilReadSlave   => axilReadSlave,
-            -- DMA Interface
-            axisClk         => adc_clk,
-            axisRst         => pl_rst,
+            -- DMA Interface (dmaClk domain)
+            axisClk         => dmaClk,
+            axisRst         => dmaRst,
             dmaIbMaster     => dmaIbMasters(0),
             dmaIbSlave      => dmaIbSlaves(0),
             -- ADC data lines (there no control input to the ADCs, so there
             -- only is the data stream, thus directly pipe it into the
             -- Application)
-            adcClk          => adc_clk,
+            adcClk          => adcClk,
             adcDatA         => adc_dat_a_i,
-            adcDatB         => adc_dat_b_i
-            );
+            adcDatB         => adc_dat_b_i);
 
 end architecture top_level;
