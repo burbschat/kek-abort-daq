@@ -2,14 +2,7 @@
 ## Manually loading kernel drivers/firmware
 ```sh
 fpgautil -b /boot/system.bin 
-insmod /lib/modules/$(uname -r)/updates/axi_memory_map.ko plMinAddr=0x40000000 plMaxAddr=0x0b0010000
-# Debug version can be loaded as well from wherever it is located...
-insmod ./axi_stream_dma.ko cfgRxCount0=32 cfgTxCount0=16
-
-insmod ./axi_stream_dma_extradebug_noforceirq.ko cfgRxCount0=32 cfgTxCount0=16
-
-# Actually like this (four! zeros/Fs)?
-insmod /lib/modules/$(uname -r)/updates/axi_memory_map.ko plMinAddr=0x40000000 plMaxAddr=0x0b000FFFF
+insmod /lib/modules/$(uname -r)/updates/axi_memory_map.ko plMinAddr=0x40000000 plMaxAddr=0x07FFFFFFF
 insmod /lib/modules/$(uname -r)/updates/axi_stream_dma.ko cfgTxCount0=16 cfgRxCount0=84 cfgSize0=0x10000
 ```
 
@@ -20,22 +13,9 @@ insmod /lib/modules/$(uname -r)/updates/axi_stream_dma.ko cfgTxCount0=16 cfgRxCo
 
 Still must address the buffer count error from rogue (more than 84 + 16 triggers this one).
 
-Seems like the descriptor path through the muxes is not even used (at least in
-the current configuration). DMA (at least write) worked without it hooked up
-and all the related signals appear optimized away (not available for ILA).
-
-Not sure if DMA address space should/can be moved into the AXIL address range.
-As of now we just map a non-existing range as 
-```
-plMinAddr=0x40000000 plMaxAddr=0x0b000FFFF
-```
-and the AXIL range goes up to `0x7FFFFFFF` so `0x80000000` to `0x0aFFFFFFF` is
-empty. Nothing seems to break/crash though when accessing this range so I guess
-this is fine.
-
-Nevermind, the dma driver does not even require the memory map driver. Probably
-accesses the memory directly.
-Range is set in the device tree:
+and the AXIL range goes up to `0x7FFFFFFF`. The memory map is not required to
+cover the range used by DMA (starting at `0xb0000000`).
+Range for DMA is set in the device tree:
 ```
 	axi_stream_dma_0@b0000000 {
 		compatible = "axi_stream_dma";
@@ -43,6 +23,10 @@ Range is set in the device tree:
 		interrupts = <0 29 4>;
 ...
 ```
+
+Seems like the descriptor path through the muxes is not even used (at least in
+the current configuration). DMA (at least write) worked without it hooked up
+and all the related signals appear optimized away (not available for ILA).
 
 ## DMA Axi interface settings
 ### US+
