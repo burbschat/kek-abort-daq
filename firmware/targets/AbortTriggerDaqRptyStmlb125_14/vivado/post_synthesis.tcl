@@ -8,7 +8,7 @@ source $::env(RUCKUS_PROC_TCL)
 # Bypass the debug chipscope generation via return cmd
 # ELSE ... comment out the return to include chipscope
 ######################################################
-# return
+return
 
 ############################
 ## Open the synthesis design
@@ -47,20 +47,6 @@ ConfigProbe ${ilaName} {U_App/axilRst}
 ConfigProbe ${ilaName} {U_App/U_AxiStreamRingBuffer/axisMaster*}
 ConfigProbe ${ilaName} {U_App/U_AxiStreamRingBuffer/axisSlave*}
 
-# ConfigProbe ${ilaName} {U_App/U_AxiStreamRingBuffer/TX_FIFO/sAxisMaster*}
-# ConfigProbe ${ilaName} {U_App/U_AxiStreamRingBuffer/TX_FIFO/sAxisSlave*}
-
-# ConfigProbe ${ilaName} {U_core/U_DMA/U_V2Gen/U_ChanGen[0].U_DmaWriteMux/dataWriteMaster[*]*}
-# ConfigProbe ${ilaName} {U_core/U_DMA/U_V2Gen/U_ChanGen[0].U_DmaWriteMux/dataWriteSlave[*]*}
-# # ConfigProbe ${ilaName} {U_core/U_DMA/U_V2Gen/U_ChanGen[0].U_DmaWriteMux/dataWriteCtrl*}
-
-# ConfigProbe ${ilaName} {U_core/U_DMA/U_V2Gen/U_ChanGen[0].U_DmaWriteMux/descWriteMaster[*]*}
-# ConfigProbe ${ilaName} {U_core/U_DMA/U_V2Gen/U_ChanGen[0].U_DmaWriteMux/descWriteSlave[*]*}
-
-# ConfigProbe ${ilaName} {U_core/U_DMA/U_V2Gen/U_ChanGen[0].U_DmaWriteMux/mAxiWriteMaster[*]*}
-# ConfigProbe ${ilaName} {U_core/U_DMA/U_V2Gen/U_ChanGen[0].U_DmaWriteMux/mAxiWriteSlave[*]*}
-# # ConfigProbe ${ilaName} {U_core/U_DMA/U_V2Gen/U_ChanGen[0].U_DmaWriteMux/mAxiWriteCtrl*}
-
 # Data written to ring buffer
 # ConfigProbe ${ilaName} {U_App/U_AxiStreamRingBuffer/dataR[ramWrData]*}
 # ConfigProbe ${ilaName} {U_App/U_AxiStreamRingBuffer/dataR[nextAddr]*}
@@ -73,19 +59,19 @@ ConfigProbe ${ilaName} {U_App/U_AxiStreamRingBuffer/axisSlave*}
 # ConfigProbe ${ilaName} {U_App/U_AxiStreamRingBuffer/axilR[rdEn]*}
 # ConfigProbe ${ilaName} {U_App/U_AxiStreamRingBuffer/ramRdData*}
 
-# Interface to CPU
-# ConfigProbe ${ilaName} {U_core/REAL_CPU.U_CPU/U_CPU/axi_dma_*}
-
 # Protocol convert in/out
 # ConfigProbe ${ilaName} {U_core/REAL_CPU.U_CPU/U_CPU/axi_protocol_convert_2/m_axi_*}
 # ConfigProbe ${ilaName} {U_core/REAL_CPU.U_CPU/U_CPU/axi_protocol_convert_2/s_axi_*}
 
-# # DMA interrupt signal
+# DMA interrupt signal
 ConfigProbe ${ilaName} {U_core/U_DMA/dmaIrq}
-#
-# # DMA Descriptor state (check if stuck in WAIT_S)
+
+# Interface to CPU
+# ConfigProbe ${ilaName} {U_core/REAL_CPU.U_CPU/U_CPU/axi_dma_*}
+
+# DMA Descriptor state (check if stuck in WAIT_S)
 # ConfigProbe ${ilaName} {U_core/U_DMA/U_V2Gen/U_DmaDesc/stateMirror*}
-# # Check IRQ assert conditions
+# Check IRQ assert conditions
 # ConfigProbe ${ilaName} {U_core/U_DMA/U_V2Gen/U_DmaDesc/intReqCountMirror*}
 # ConfigProbe ${ilaName} {U_core/U_DMA/U_V2Gen/U_DmaDesc/holdoffCompare*}
 # ConfigProbe ${ilaName} {U_core/U_DMA/U_V2Gen/U_DmaDesc/forceIntMirror*}
@@ -103,24 +89,44 @@ ConfigProbe ${ilaName} {U_core/U_DMA/dmaIrq}
 
 # DMA AXI signals
 # With Read/Write path Mux
-ConfigProbe ${ilaName} {U_core/U_DMA/U_WritePathMux/sAxiWriteMasters[*]*}
-ConfigProbe ${ilaName} {U_core/U_DMA/U_WritePathMux/sAxiWriteSlaves[*]*}
-ConfigProbe ${ilaName} {U_core/U_DMA/U_WritePathMux/mAxiWriteMaster[*]*}
-ConfigProbe ${ilaName} {U_core/U_DMA/U_WritePathMux/mAxiWriteSlave[*]*}
+# ConfigProbe ${ilaName} {U_core/U_DMA/U_WritePathMux/sAxiWriteMasters[*]*}
+# ConfigProbe ${ilaName} {U_core/U_DMA/U_WritePathMux/sAxiWriteSlaves[*]*}
+# ConfigProbe ${ilaName} {U_core/U_DMA/U_WritePathMux/mAxiWriteMaster[*]*}
+# ConfigProbe ${ilaName} {U_core/U_DMA/U_WritePathMux/mAxiWriteSlave[*]*}
 
-ConfigProbe ${ilaName} {U_core/U_DMA/U_ReadPathMux/sAxiReadMasters[*]*}
-ConfigProbe ${ilaName} {U_core/U_DMA/U_ReadPathMux/sAxiReadSlaves[*]*}
-ConfigProbe ${ilaName} {U_core/U_DMA/U_ReadPathMux/mAxiReadMaster[*]*}
-ConfigProbe ${ilaName} {U_core/U_DMA/U_ReadPathMux/mAxiReadSlave[*]*}
-#
+# ConfigProbe ${ilaName} {U_core/U_DMA/U_ReadPathMux/sAxiReadMasters[*]*}
+# ConfigProbe ${ilaName} {U_core/U_DMA/U_ReadPathMux/sAxiReadSlaves[*]*}
+# ConfigProbe ${ilaName} {U_core/U_DMA/U_ReadPathMux/mAxiReadMaster[*]*}
+# ConfigProbe ${ilaName} {U_core/U_DMA/U_ReadPathMux/mAxiReadSlave[*]*}
+
 # Without Read/Write path Mux
 # ConfigProbe ${ilaName} {U_core/U_DMA/axiWriteMaster[*]*}
 # ConfigProbe ${ilaName} {U_core/U_DMA/axiWriteSlave[*]*}
 # ConfigProbe ${ilaName} {U_core/U_DMA/axiReadMaster[*]*}
 # ConfigProbe ${ilaName} {U_core/U_DMA/axiReadSlave[*]*}
-#
+
 # AXI-Lite bus used by descriptor
-ConfigProbe ${ilaName} {U_core/REAL_CPU.U_CPU/U_CPU/axi_dmactrl_*}
+# ConfigProbe ${ilaName} {U_core/REAL_CPU.U_CPU/U_CPU/axi_dmactrl_*}
+
+# Note: trying to add a clock as a probe is likely to lead to timing issues
+ConfigProbe ${ilaName} {U_core/U_REG/appRst}
+ConfigProbe ${ilaName} {U_core/U_REG/appUserRst}
+
+# Application AXI-Lite interfaces
+ConfigProbe ${ilaName} {U_core/U_REG/appWriteMaster*}
+ConfigProbe ${ilaName} {U_core/U_REG/appWriteSlave*}
+ConfigProbe ${ilaName} {U_core/U_REG/appReadMaster*}
+ConfigProbe ${ilaName} {U_core/U_REG/appReadSlave*}
+
+ConfigProbe ${ilaName} {U_core/U_REG/axilWriteMaster*}
+ConfigProbe ${ilaName} {U_core/U_REG/axilWriteSlave*}
+ConfigProbe ${ilaName} {U_core/U_REG/axilReadMaster*}
+ConfigProbe ${ilaName} {U_core/U_REG/axilReadSlave*}
+
+ConfigProbe ${ilaName} {U_core/U_REG/axilWriteMasters[*]*}
+ConfigProbe ${ilaName} {U_core/U_REG/axilWriteSlaves[*]*}
+ConfigProbe ${ilaName} {U_core/U_REG/axilReadMasters[*]*}
+ConfigProbe ${ilaName} {U_core/U_REG/axilReadSlaves[*]*}
 
 ##########################
 ## Write the port map file
