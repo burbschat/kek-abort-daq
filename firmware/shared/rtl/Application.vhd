@@ -96,6 +96,7 @@ begin
     U_REG_STATIC : entity axi_soc_7000_core.AxiTestRegister
         port map(
             axilClk         => axilClk,
+            axilRst         => axilRst,
             axilReadMaster  => axilReadMasters(AXIL_TEST_INDEX),
             axilReadSlave   => axilReadSlaves(AXIL_TEST_INDEX),
             axilWriteMaster => axilWriteMasters(AXIL_TEST_INDEX),
