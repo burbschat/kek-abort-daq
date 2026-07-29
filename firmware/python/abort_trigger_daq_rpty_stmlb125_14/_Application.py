@@ -5,9 +5,10 @@ import surf.axi as axi
 
 
 class Application(pr.Device):
-    def __init__(self, **kwargs):
+    def __init__(self, n_adc_channels, **kwargs):
         super().__init__(**kwargs)
 
         self.add(rpty.TestRegister(name="TestRegister", offset=0x0, hidden=False))
 
-        self.add(axi.AxiStreamRingBuffer(name="AxiStreamRingBuffer", offset=0x0100_0000, hidden=False))
+        for i in range(n_adc_channels):
+            self.add(axi.AxiStreamRingBuffer(name=f"AxiStreamRingBuffer[{i}]", offset=0x0100_0000 + 0x0100_0000 * i, hidden=False))

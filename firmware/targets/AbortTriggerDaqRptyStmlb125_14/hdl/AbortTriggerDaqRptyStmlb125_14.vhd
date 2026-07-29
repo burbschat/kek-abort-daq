@@ -197,7 +197,7 @@ begin
             -- only is the data stream, thus directly pipe it into the
             -- Application)
             adcClk          => adcClk,
-            adcDatA         => adc_dat_a_i,
-            adcDatB         => adc_dat_b_i);
+            adcDat(0)       => adc_dat_a_i,
+            adcDat(1)       => adc_dat_b_i);
 
 end architecture top_level;

@@ -29,6 +29,9 @@ class Root(pr.Root):
     ):
         super().__init__(timeout=5.0, **kwargs)
 
+        n_adc_channels = 2
+        sampleRate = 125e6  # Hz
+
         #################################################################
 
         self.zmqServer = pr.interfaces.ZmqServer(root=self, addr="127.0.0.1", port=zmqSrvPort)
@@ -72,6 +75,7 @@ class Root(pr.Root):
             target.Zynq7SoC(
                 memBase=self.memMap,
                 offset=0x4000_0000,  # 32-bit address space
+                n_adc_channels=n_adc_channels,
                 expand=True,
             )
         )
@@ -82,21 +86,19 @@ class Root(pr.Root):
 
         # Create rogue stream arrays
         if ip != None:
-            self.testStream = stream.TcpClient(ip,10000)
+            self.ringBufferAdc = [stream.TcpClient(ip, 10000 + 2 * (i + 0)) for i in range(n_adc_channels)]
         else:
-            self.testStream = rogue.hardware.axi.AxiStreamDma('/dev/axi_stream_dma_0', 0,  True)
+            self.ringBufferAdc = [rogue.hardware.axi.AxiStreamDma("/dev/axi_stream_dma_0", i + 0, True) for i in range(n_adc_channels)]
 
-        self.testStreamDropFifo = pr.interfaces.stream.Fifo(name=f'TestStreamDropFifo', maxDepth=1, hidden=False) # Drop if more than 1 frame in FIFO
+        self.adcDropFifo = [pr.interfaces.stream.Fifo(name=f"AdcDropFifo[{i}]", maxDepth=1, hidden=False) for i in range(n_adc_channels)]  # Drop if more than 1 frame in FIFO
+        self.adcRingProcessor = [hardware_core.RingBufferProcessor(name=f"AdcProcessor[{i}]", sampleRate=sampleRate) for i in range(n_adc_channels)]
 
-        self.add(self.testStreamDropFifo)
-
-        # Connect test stream
-        self.testStream >> self.dataWriter.getChannel(0)
-        self.testStream >> self.testStreamDropFifo
-
-        self.ring_processor = hardware_core.RingBufferProcessor(name=f"AdcProcessor[0]", sampleRate=125e6)
-        self.add(self.ring_processor)
-        self.testStreamDropFifo >> self.ring_processor
+        # Connect streams, add stream endpoints to tree (optional)
+        for i in range(n_adc_channels):
+            self.ringBufferAdc[i] >> self.adcDropFifo[i] >> self.adcRingProcessor[i]
+            self.ringBufferAdc[i] >> self.dataWriter.getChannel(i)
+            self.add(self.adcDropFifo[i])
+            self.add(self.adcRingProcessor[i])
 
         # Debug Slave
         # self.dbg = rogue.interfaces.stream.Slave()
@@ -105,10 +107,10 @@ class Root(pr.Root):
         # Add the debug slave as a second slave
         # self.testStreamDropFifo >> self.dbg
 
-        # Test (debug) slave
-        self.test_processor = target.TestProcessor()
-        self.add(self.test_processor)
-        self.testStreamDropFifo >> self.test_processor
+        # Custom test (debug) slave
+        # self.testProcessor = target.TestProcessor()
+        # self.add(self.testProcessor)
+        # self.adcDropFifo[0] >> self.testProcessor
 
         # Unhide all nodes recursively
         def unhide_recursive(dev):

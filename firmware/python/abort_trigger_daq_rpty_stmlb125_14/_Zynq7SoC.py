@@ -5,7 +5,7 @@ import abort_trigger_daq_rpty_stmlb125_14 as target
 
 
 class Zynq7SoC(pr.Device):
-    def __init__(self,**kwargs):
+    def __init__(self, n_adc_channels, **kwargs):
         super().__init__(**kwargs)
 
         self.add(socCore.AxiSocCore(
@@ -14,7 +14,8 @@ class Zynq7SoC(pr.Device):
         ))
 
         self.add(target.Application(
-            offset  = 0x2000_0000,
-            expand  = True,
-            enabled = True, 
+            offset         = 0x2000_0000,
+            n_adc_channels = n_adc_channels,
+            expand         = True,
+            enabled        = True,
         ))

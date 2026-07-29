@@ -37,42 +37,36 @@ entity Application is
         dmaIbSlave      : in  AxiStreamSlaveType;
         -- ADC data lines
         adcClk          : in  sl;
-        adcDatA         : in  slv(15 downto 0);
-        adcDatB         : in  slv(15 downto 0)
-        );
+        adcDat          : in  Slv16Array(1 downto 0));
 end Application;
 
 architecture mapping of Application is
 
-    constant NUM_AXIL_MASTERS_C : natural := 2;
-    constant AXIL_TEST_INDEX    : natural := 0;
-    constant AXIL_RING_INDEX    : natural := 1;
+    constant NUM_ADC_CH_C       : natural                            := 2;
+    constant ADC_TDEST_ROUTES_C : Slv8Array(NUM_ADC_CH_C-1 downto 0) := (0 => x"00", 1 => x"01");
 
-    -- TODO: What should the base bits be for genAxiLiteConfig? Set using global constants?
-    -- constant AXIL_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXIL_MASTERS_C-1 downto 0) := genAxiLiteConfig(NUM_AXIL_MASTERS_C, AXIL_BASE_ADDR_G, 28, 24);
-    -- For now, be explicit:
-    -- TODO: See if I can get around specifying all 32 address bits as we don't care about the upper ones (I think)
-    constant AXIL_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXIL_MASTERS_C-1 downto 0) := (
-        AXIL_TEST_INDEX  => (
-            baseAddr     => AXIL_BASE_ADDR_G + x"0000_0000",  -- Relative to app offset applied by crossbar in reg module in core? But still have to give correct address as all bits are compared???
-            addrBits     => 24,
-            connectivity => x"FFFF"),
-        AXIL_RING_INDEX  => (
-            baseAddr     => AXIL_BASE_ADDR_G + x"0100_0000",
-            addrBits     => 24,
-            connectivity => x"FFFF")
-        );
+    constant NUM_AXIL_MASTERS_C   : natural := 3;
+    constant AXIL_TEST_INDEX      : natural := 0;
+    constant AXIL_RING_INDEX_BASE : natural := 1;  -- Must accomodate NUM_ADC_CH_C channels
+
+    constant AXIL_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXIL_MASTERS_C-1 downto 0) := genAxiLiteConfig(NUM_AXIL_MASTERS_C, AXIL_BASE_ADDR_G, 28, 24);
 
     signal axilReadMasters  : AxiLiteReadMasterArray(NUM_AXIL_MASTERS_C-1 downto 0);
     signal axilReadSlaves   : AxiLiteReadSlaveArray(NUM_AXIL_MASTERS_C-1 downto 0)  := (others => AXI_LITE_READ_SLAVE_EMPTY_DECERR_C);
     signal axilWriteMasters : AxiLiteWriteMasterArray(NUM_AXIL_MASTERS_C-1 downto 0);
     signal axilWriteSlaves  : AxiLiteWriteSlaveArray(NUM_AXIL_MASTERS_C-1 downto 0) := (others => AXI_LITE_WRITE_SLAVE_EMPTY_DECERR_C);
 
+    -- Axi stream for ring buffers
+    signal axisMasters : AxiStreamMasterArray(NUM_ADC_CH_C-1 downto 0) := (others => AXI_STREAM_MASTER_INIT_C);
+    signal axisSlaves  : AxiStreamSlaveArray(NUM_ADC_CH_C-1 downto 0)  := (others => AXI_STREAM_SLAVE_FORCE_C);
+
     signal count : slv(31 downto 0) := (others => '0');
 
-    signal ringBuffTrig : sl := '0';
-
 begin
+
+    --------------------
+    -- AXI-Lite Crossbar
+    --------------------
 
     U_XBAR : entity surf.AxiLiteCrossbar
         generic map (
@@ -92,7 +86,10 @@ begin
             mAxiReadMasters     => axilReadMasters,
             mAxiReadSlaves      => axilReadSlaves);
 
-    -- Some static registers for testing
+    -----------------
+    -- Test Registers
+    -----------------
+
     U_REG_STATIC : entity axi_soc_7000_core.AxiTestRegister
         port map(
             axilClk         => axilClk,
@@ -103,9 +100,10 @@ begin
             axilWriteSlave  => axilWriteSlaves(AXIL_TEST_INDEX)
             );
 
-    ringBuffTrig <= count(29-7+2);
-
+    ---------------
     -- LED blinking
+    ---------------
+
     process(axilClk)
     begin
         if rising_edge(axilClk) then
@@ -113,46 +111,65 @@ begin
 
             -- At 125MHz the 26th bit should give visible LED blinking
             leds <= count(29 downto 29 - 7);
-
-            -- Display ADC A Data bits on LEDs
-            -- leds(7 downto 1) <= adcDatA(7 downto 1);
-            leds(0) <= ringBuffTrig;
-            leds(1) <= ringBuffTrig;
-
         end if;
     end process;
 
-    U_AxiStreamRingBuffer : entity surf.AxiStreamRingBuffer
+    ------------------------
+    -- ADC Data Ring Buffers
+    ------------------------
+
+    genAxiStreamRingBuffers : for i in 0 to 1 generate
+        U_AxiStreamRingBuffer : entity surf.AxiStreamRingBuffer
+            generic map (
+                TPD_G               => TPD_G,
+                SYNTH_MODE_G        => "xpm",
+                MEMORY_TYPE_G       => "block",
+                COMMON_CLK_G        => false,  -- In this design in general axisClk is not same as axilClk (see top module)
+                DATA_BYTES_G        => 2,  -- 16 bit (2 byte) per clock from ADC
+                RAM_ADDR_WIDTH_G    => 13,  -- Decides size of the buffer (2**13=8192 words)
+                -- AXI Stream Configurations
+                FIFO_MEMORY_TYPE_G  => "block",
+                FIFO_ADDR_WIDTH_G   => 9,
+                GEN_SYNC_FIFO_G     => false,  -- In this design in general axisClk is not same as axilClk (see top module)
+                AXI_STREAM_CONFIG_G => DMA_AXIS_CONFIG_C)
+            port map (
+                -- Data to store in ring buffer (dataClk domain)
+                dataClk         => adcClk,
+                dataValid       => '1',    -- Always valid 
+                dataValue       => adcDat(i),  -- ADC channel A
+                extTrig         => '0',
+                -- AXI-Lite interface (axilClk domain)
+                axilClk         => axilClk,
+                axilRst         => axilRst,
+                axilReadMaster  => axilReadMasters(AXIL_RING_INDEX_BASE + i),
+                axilReadSlave   => axilReadSlaves(AXIL_RING_INDEX_BASE + i),
+                axilWriteMaster => axilWriteMasters(AXIL_RING_INDEX_BASE + i),
+                axilWriteSlave  => axilWriteSlaves(AXIL_RING_INDEX_BASE + i),
+                -- AXI-Stream Interface (axisClk domain)
+                axisClk         => axisClk,
+                axisRst         => axisRst,
+                axisMaster      => axisMasters(i),
+                axisSlave       => axisSlaves(i)
+                );
+    end generate genAxiStreamRingBuffers;
+
+    -- Mux AXI streams and stick on the correct destinations (ROUTED mode)
+    U_Mux : entity surf.AxiStreamMux
         generic map (
-            TPD_G               => TPD_G,
-            SYNTH_MODE_G        => "xpm",
-            MEMORY_TYPE_G       => "block",
-            COMMON_CLK_G        => false,  -- In this design in general axisClk is not same as axilClk (see top module)
-            DATA_BYTES_G        => 2,   -- 16 bit (2 byte) per clock from ADC
-            RAM_ADDR_WIDTH_G    => 13,  -- Decides size of the buffer (2**13=8192 words)
-            -- AXI Stream Configurations
-            FIFO_MEMORY_TYPE_G  => "block",
-            FIFO_ADDR_WIDTH_G   => 9,
-            GEN_SYNC_FIFO_G     => false,  -- In this design in general axisClk is not same as axilClk (see top module)
-            AXI_STREAM_CONFIG_G => DMA_AXIS_CONFIG_C)
+            TPD_G          => TPD_G,
+            NUM_SLAVES_G   => NUM_ADC_CH_C,
+            MODE_G         => "ROUTED",
+            TDEST_ROUTES_G => ADC_TDEST_ROUTES_C,
+            PIPE_STAGES_G  => 1)
         port map (
-            -- Data to store in ring buffer (dataClk domain)
-            dataClk         => adcClk,
-            dataValid       => '1',     -- Always valid 
-            dataValue       => adcDatA,    -- ADC channel A
-            extTrig         => '0',
-            -- AXI-Lite interface (axilClk domain)
-            axilClk         => axilClk,
-            axilRst         => axilRst,
-            axilReadMaster  => axilReadMasters(AXIL_RING_INDEX),
-            axilReadSlave   => axilReadSlaves(AXIL_RING_INDEX),
-            axilWriteMaster => axilWriteMasters(AXIL_RING_INDEX),
-            axilWriteSlave  => axilWriteSlaves(AXIL_RING_INDEX),
-            -- AXI-Stream Interface (axisClk domain)
-            axisClk         => axisClk,
-            axisRst         => axisRst,
-            axisMaster      => dmaIbMaster,
-            axisSlave       => dmaIbSlave
-            );
+            -- Clock and reset
+            axisClk      => axisClk,
+            axisRst      => axisRst,
+            -- Slaves
+            sAxisMasters => axisMasters,
+            sAxisSlaves  => axisSlaves,
+            -- Master
+            mAxisMaster  => dmaIbMaster,
+            mAxisSlave   => dmaIbSlave);
 
 end mapping;
