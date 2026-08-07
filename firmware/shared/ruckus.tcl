@@ -13,3 +13,10 @@ loadSource -dir  "$::DIR_PATH/rtl"
 
 # Updating the impl_1 strategy
 set_property strategy Performance_ExplorePostRoutePhysOpt [get_runs impl_1]
+
+# Load simulation only code
+# loadSource -sim_only -dir "$::DIR_PATH/tb" -fileType "VHDL 2008"
+# Load VIVADO unisim components
+loadSource -sim_only -lib unisim -path "$::env(XILINX_VIVADO)/data/vhdl/src/unisims/unisim_VPKG.vhd"
+loadSource -sim_only -lib unisim -path "$::env(XILINX_VIVADO)/data/vhdl/src/unisims/unisim_VCOMP.vhd"
+loadSource -sim_only -lib unisim -dir  "$::env(XILINX_VIVADO)/data/vhdl/src/unisims/primitive"
