@@ -45,9 +45,10 @@ architecture mapping of Application is
     constant NUM_ADC_CH_C       : natural                            := 2;
     constant ADC_TDEST_ROUTES_C : Slv8Array(NUM_ADC_CH_C-1 downto 0) := (0 => x"00", 1 => x"01");
 
-    constant NUM_AXIL_MASTERS_C   : natural := 3;
+    constant NUM_AXIL_MASTERS_C   : natural := 4;
     constant AXIL_TEST_INDEX      : natural := 0;
     constant AXIL_RING_INDEX_BASE : natural := 1;  -- Must accomodate NUM_ADC_CH_C channels
+    constant AXIL_THR_TRIG_INDEX  : natural := AXIL_RING_INDEX_BASE + NUM_ADC_CH_C;  -- 3
 
     constant AXIL_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXIL_MASTERS_C-1 downto 0) := genAxiLiteConfig(NUM_AXIL_MASTERS_C, AXIL_BASE_ADDR_G, 28, 24);
 
@@ -61,6 +62,8 @@ architecture mapping of Application is
     signal axisSlaves  : AxiStreamSlaveArray(NUM_ADC_CH_C-1 downto 0)  := (others => AXI_STREAM_SLAVE_FORCE_C);
 
     signal count : slv(31 downto 0) := (others => '0');
+
+    signal buffTrig : sl := '0';
 
 begin
 
@@ -137,7 +140,7 @@ begin
                 dataClk         => adcClk,
                 dataValid       => '1',    -- Always valid 
                 dataValue       => adcDat(i),  -- ADC channel A
-                extTrig         => '0',
+                extTrig         => buffTrig,
                 -- AXI-Lite interface (axilClk domain)
                 axilClk         => axilClk,
                 axilRst         => axilRst,
@@ -171,5 +174,28 @@ begin
             -- Master
             mAxisMaster  => dmaIbMaster,
             mAxisSlave   => dmaIbSlave);
+
+    ------------------------
+    -- ADC Threshold Trigger
+    ------------------------
+
+    ThrTrig_inst : entity work.ThrTrig
+        generic map(
+            TPD_G           => TPD_G,
+            DATA_WIDTH_G    => 16,
+            SAFE_HYST_EN_G  => true,
+            NUM_ADDR_BITS_G => 32)
+        port map(
+            adcClk          => adcClk,
+            adcRst          => '0',
+            adcDat          => adcDat(0),  -- For now just on channel 0
+            trigOut         => buffTrig,
+            axilClk         => axilClk,
+            axilRst         => axilRst,
+            axilWriteMaster => axilWriteMasters(AXIL_THR_TRIG_INDEX),
+            axilWriteSlave  => axilWriteSlaves(AXIL_THR_TRIG_INDEX),
+            axilReadMaster  => axilReadMasters(AXIL_THR_TRIG_INDEX),
+            axilReadSlave   => axilReadSlaves(AXIL_THR_TRIG_INDEX)
+            );
 
 end mapping;

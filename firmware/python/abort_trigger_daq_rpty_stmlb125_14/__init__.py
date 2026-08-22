@@ -3,3 +3,4 @@ from abort_trigger_daq_rpty_stmlb125_14._Root import *
 from abort_trigger_daq_rpty_stmlb125_14._Zynq7SoC import *
 from abort_trigger_daq_rpty_stmlb125_14._TestRegister import *
 from abort_trigger_daq_rpty_stmlb125_14._TestProcessor import *
+from abort_trigger_daq_rpty_stmlb125_14._ThrTrig import *

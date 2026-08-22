@@ -10,5 +10,9 @@ class Application(pr.Device):
 
         self.add(rpty.TestRegister(name="TestRegister", offset=0x0, hidden=False))
 
+        offset = 0x0100_0000
         for i in range(n_adc_channels):
-            self.add(axi.AxiStreamRingBuffer(name=f"AxiStreamRingBuffer[{i}]", offset=0x0100_0000 + 0x0100_0000 * i, hidden=False))
+            self.add(axi.AxiStreamRingBuffer(name=f"AxiStreamRingBuffer[{i}]", offset=offset, hidden=False))
+            offset += 0x0100_0000
+
+        self.add(rpty.ThrTrig(name="ThrTrig[0]", offset=offset))
