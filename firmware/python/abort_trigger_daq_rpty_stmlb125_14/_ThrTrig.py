@@ -8,7 +8,7 @@ class ThrTrig(pr.Device):
         self._trigStatesEnum = {
             0x0: "IDLE",
             0x1: "ARMED",
-            0x3: "HYSTERESIS",
+            0x2: "HYSTERESIS",
         }
 
         self._trigDirectionsEnum = {
