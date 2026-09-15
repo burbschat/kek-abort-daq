@@ -45,10 +45,11 @@ architecture mapping of Application is
     constant NUM_ADC_CH_C       : natural                            := 2;
     constant ADC_TDEST_ROUTES_C : Slv8Array(NUM_ADC_CH_C-1 downto 0) := (0 => x"00", 1 => x"01");
 
-    constant NUM_AXIL_MASTERS_C   : natural := 4;
+    constant NUM_AXIL_MASTERS_C   : natural := 5;
     constant AXIL_TEST_INDEX      : natural := 0;
     constant AXIL_RING_INDEX_BASE : natural := 1;  -- Must accomodate NUM_ADC_CH_C channels
     constant AXIL_THR_TRIG_INDEX  : natural := AXIL_RING_INDEX_BASE + NUM_ADC_CH_C;  -- 3
+    constant AXIL_TOT_TRIG_INDEX  : natural := AXIL_RING_INDEX_BASE + NUM_ADC_CH_C + 1;  -- 4
 
     constant AXIL_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXIL_MASTERS_C-1 downto 0) := genAxiLiteConfig(NUM_AXIL_MASTERS_C, AXIL_BASE_ADDR_G, 28, 24);
 
@@ -63,6 +64,8 @@ architecture mapping of Application is
 
     signal count : slv(31 downto 0) := (others => '0');
 
+    signal thrTrig  : sl := '0';
+    signal totTrig  : sl := '0';
     signal buffTrig : sl := '0';
 
 begin
@@ -175,6 +178,13 @@ begin
             mAxisMaster  => dmaIbMaster,
             mAxisSlave   => dmaIbSlave);
 
+    -----------------------------------
+    -- Buffer Trigger Signal Assignment
+    -----------------------------------
+    -- TODO: Implement trigger selection logic. Maybe just run all triggers all the
+    -- time and add a mux to select a given trigger source or multiple.
+    buffTrig <= thrTrig or totTrig;
+
     ------------------------
     -- ADC Threshold Trigger
     ------------------------
@@ -189,13 +199,34 @@ begin
             adcClk          => adcClk,
             adcRst          => '0',
             adcDat          => adcDat(0),  -- For now just on channel 0
-            trigOut         => buffTrig,
+            trigOut         => thrTrig,
             axilClk         => axilClk,
             axilRst         => axilRst,
             axilWriteMaster => axilWriteMasters(AXIL_THR_TRIG_INDEX),
             axilWriteSlave  => axilWriteSlaves(AXIL_THR_TRIG_INDEX),
             axilReadMaster  => axilReadMasters(AXIL_THR_TRIG_INDEX),
-            axilReadSlave   => axilReadSlaves(AXIL_THR_TRIG_INDEX)
-            );
+            axilReadSlave   => axilReadSlaves(AXIL_THR_TRIG_INDEX));
+
+    ----------------------------------
+    -- ADC Time-Over-Threshold Trigger
+    ----------------------------------
+
+    TotTrig_inst : entity work.TotTrig
+        generic map(
+            TPD_G           => TPD_G,
+            DATA_WIDTH_G    => 16,
+            SAFE_HYST_EN_G  => true,
+            NUM_ADDR_BITS_G => 32)
+        port map(
+            adcClk          => adcClk,
+            adcRst          => '0',
+            adcDat          => adcDat(1),  -- For now just on channel 1
+            trigOut         => totTrig,
+            axilClk         => axilClk,
+            axilRst         => axilRst,
+            axilWriteMaster => axilWriteMasters(AXIL_TOT_TRIG_INDEX),
+            axilWriteSlave  => axilWriteSlaves(AXIL_TOT_TRIG_INDEX),
+            axilReadMaster  => axilReadMasters(AXIL_TOT_TRIG_INDEX),
+            axilReadSlave   => axilReadSlaves(AXIL_TOT_TRIG_INDEX));
 
 end mapping;
