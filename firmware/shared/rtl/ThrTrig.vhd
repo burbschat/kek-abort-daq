@@ -173,7 +173,6 @@ begin
                     v.trig                    := '1';
 
                     -- Return to idle state if keep arm is disabled.
-                    -- Return to idle if user de-asserts arm flag.
                     if r.keepArm = '0' then
                         v.state := IDLE_S;
                         -- Reset arm flag
