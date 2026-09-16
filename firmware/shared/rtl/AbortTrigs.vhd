@@ -68,6 +68,10 @@ architecture mapping of AbortTrigs is
     signal thrTrigs : slv(1 downto 0);
     signal totTrigs : slv(1 downto 0);
 
+    signal chMaskSync      : slv(1 downto 0);
+    signal enMaskSync      : slv(1 downto 0);
+    signal syncIn, syncOut : slv(3 downto 0);
+
 begin
 
     --------------------
@@ -139,6 +143,25 @@ begin
     -- TODO: Revsig synchronized average trigger
     end generate gen_trigs;
 
+    --------------------------------------------------
+    -- Synchronize registers used on the adcClk domain
+    --------------------------------------------------
+
+    U_SyncVecChecks : entity surf.SynchronizerVector
+        generic map (
+            TPD_G   => TPD_G,
+            WIDTH_G => 4)
+        port map (
+            clk     => adcClk,
+            dataIn  => syncIn,
+            dataOut => syncOut);
+
+    syncIn(1 downto 0) <= r.chMask;
+    syncIn(3 downto 2) <= r.enMask;
+    chMaskSync         <= syncOut(1 downto 0);
+    enMaskSync         <= syncOut(3 downto 2);
+
+
     -----------------------
     -- Trigger output logic
     -----------------------
@@ -148,9 +171,9 @@ begin
     -- Enable mask idx 0: Threshold trigger
     -- Enable mask idx 1: Time-over-threshold trigger
     abortTrig <= (
-        (uOr(thrTrigs and r.chMask) and r.enMask(0))
+        (uOr(thrTrigs and chMaskSync) and enMaskSync(0))
         or
-        (uOr(totTrigs and r.chMask) and r.enMask(1))
+        (uOr(totTrigs and chMaskSync) and enMaskSync(1))
         );
 
 
