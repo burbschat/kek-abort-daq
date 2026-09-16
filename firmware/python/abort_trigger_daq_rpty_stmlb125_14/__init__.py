@@ -5,3 +5,4 @@ from abort_trigger_daq_rpty_stmlb125_14._TestRegister import *
 from abort_trigger_daq_rpty_stmlb125_14._TestProcessor import *
 from abort_trigger_daq_rpty_stmlb125_14._ThrTrig import *
 from abort_trigger_daq_rpty_stmlb125_14._TotTrig import *
+from abort_trigger_daq_rpty_stmlb125_14._AbortTrigs import *
