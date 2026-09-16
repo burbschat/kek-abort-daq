@@ -285,7 +285,7 @@ begin
                     v.arm   := '0';
                 else
                     -- Return to idle state if keep arm is disabled and logic
-                    -- above issued the revSig synchronous trigger (trigger
+                    -- above issued the revSig synchronized trigger (trigger
                     -- condition met). Check the trigger condition variable
                     -- specifically (and not the trigger output signal) in order
                     -- to not change the state if the trigger was forced.

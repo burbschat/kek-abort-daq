@@ -184,10 +184,15 @@ begin
             TPD_G            => TPD_G,
             AXIL_BASE_ADDR_G => AXIL_CONFIG_C(AXIL_TRIGS_INDEX).baseAddr)
         port map(
+            -- ADC data lines
             adcClk          => adcClk,
             adcRst          => '0',
             adcDat          => adcDat,
+            -- Revolution signal input
+            revSig          => '0',     -- TODO: Add dummy revSig for testing
+            -- Trigger output
             abortTrig       => buffTrig,
+            -- AXI-Lite Interface (axilClk domain)
             axilClk         => axilClk,
             axilRst         => axilRst,
             axilWriteMaster => axilWriteMasters(AXIL_TRIGS_INDEX),

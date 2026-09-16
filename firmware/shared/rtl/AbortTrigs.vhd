@@ -24,6 +24,8 @@ entity AbortTrigs is
         adcClk          : in  sl;
         adcRst          : in  sl := '0';
         adcDat          : in  Slv16Array(1 downto 0);
+        -- Revolution signal input
+        revSig          : in  sl;
         -- Trigger output
         abortTrig       : out sl;
         -- AXI-Lite Interface (axilClk domain)
@@ -37,21 +39,33 @@ end entity AbortTrigs;
 
 architecture mapping of AbortTrigs is
 
-    constant NUM_AXIL_MASTERS_C       : natural := 1 + 2 * 2;
-    constant AXIL_REG_INDEX           : natural := 0;
-    constant AXIL_THR_TRIG_INDEX_BASE : natural := 1;  -- 1 and 2
-    constant AXIL_TOT_TRIG_INDEX_BASE : natural := 3;  -- 3 and 4
+    constant DATA_WIDTH_C : positive := 16;
 
-    constant AXIL_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXIL_MASTERS_C-1 downto 0) := genAxiLiteConfig(NUM_AXIL_MASTERS_C, AXIL_BASE_ADDR_G, 20, 16);
+    constant BASE_BOT_C      : positive := 20;
+    constant NUM_ADDR_BITS_C : positive := 16;
 
-    signal axilReadMasters  : AxiLiteReadMasterArray(NUM_AXIL_MASTERS_C-1 downto 0);
-    signal axilReadSlaves   : AxiLiteReadSlaveArray(NUM_AXIL_MASTERS_C-1 downto 0)  := (others => AXI_LITE_READ_SLAVE_EMPTY_DECERR_C);
+    constant NUM_CH_C         : positive := 2;  -- Two channels
+    constant NUM_TRIG_TYPES_C : positive := 3;  -- Three trigger types
+
+    constant NUM_AXIL_MASTERS_C           : natural := 1 + NUM_CH_C * NUM_TRIG_TYPES_C;  -- 1 + 2 * 3  = 7
+    constant AXIL_REG_INDEX               : natural := 0;
+    constant AXIL_THR_TRIG_INDEX_BASE     : natural := 1;  -- 1 and 2
+    constant AXIL_TOT_TRIG_INDEX_BASE     : natural := 3;  -- 3 and 4
+    constant AXIL_REVSYNC_TRIG_INDEX_BASE : natural := 5;  -- 5 and 6
+
+    constant AXIL_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXIL_MASTERS_C-1 downto 0)
+        := genAxiLiteConfig(NUM_AXIL_MASTERS_C, AXIL_BASE_ADDR_G, BASE_BOT_C, NUM_ADDR_BITS_C);
+
+    signal axilReadMasters : AxiLiteReadMasterArray(NUM_AXIL_MASTERS_C-1 downto 0);
+    signal axilReadSlaves  : AxiLiteReadSlaveArray(NUM_AXIL_MASTERS_C-1 downto 0)
+        := (others => AXI_LITE_READ_SLAVE_EMPTY_DECERR_C);
     signal axilWriteMasters : AxiLiteWriteMasterArray(NUM_AXIL_MASTERS_C-1 downto 0);
-    signal axilWriteSlaves  : AxiLiteWriteSlaveArray(NUM_AXIL_MASTERS_C-1 downto 0) := (others => AXI_LITE_WRITE_SLAVE_EMPTY_DECERR_C);
+    signal axilWriteSlaves  : AxiLiteWriteSlaveArray(NUM_AXIL_MASTERS_C-1 downto 0)
+        := (others => AXI_LITE_WRITE_SLAVE_EMPTY_DECERR_C);
 
     type RegType is record
-        enMask         : slv(1 downto 0);  -- Two trigger types
-        chMask         : slv(1 downto 0);  -- Two channels
+        enMask         : slv(NUM_TRIG_TYPES_C-1 downto 0);
+        chMask         : slv(NUM_CH_C-1 downto 0);
         axilReadSlave  : AxiLiteReadSlaveType;
         axilWriteSlave : AxiLiteWriteSlaveType;
     end record RegType;
@@ -65,12 +79,15 @@ architecture mapping of AbortTrigs is
     signal r   : RegType := REG_INIT_C;
     signal rin : RegType;
 
-    signal thrTrigs : slv(1 downto 0);
-    signal totTrigs : slv(1 downto 0);
+    signal revSigSyncOneshot : sl;
 
-    signal chMaskSync      : slv(1 downto 0);
-    signal enMaskSync      : slv(1 downto 0);
-    signal syncIn, syncOut : slv(3 downto 0);
+    signal thrTrigs     : slv(NUM_CH_C-1 downto 0);
+    signal totTrigs     : slv(NUM_CH_C-1 downto 0);
+    signal revSyncTrigs : slv(NUM_CH_C-1 downto 0);
+
+    signal chMaskSync      : slv(NUM_CH_C-1 downto 0);
+    signal enMaskSync      : slv(NUM_TRIG_TYPES_C-1 downto 0);
+    signal syncIn, syncOut : slv(NUM_CH_C+NUM_TRIG_TYPES_C-1 downto 0);
 
 begin
 
@@ -96,6 +113,20 @@ begin
             mAxiReadMasters     => axilReadMasters,
             mAxiReadSlaves      => axilReadSlaves);
 
+    --------------------------------------------
+    -- Synchronize revSig to adc clock (oneshot)
+    --------------------------------------------
+    -- RevSyncIntTrig requires this.
+
+    U_SoftTrigSync : entity surf.SynchronizerOneShot
+        generic map(
+            TPD_G         => TPD_G,
+            PULSE_WIDTH_G => 1)
+        port map(
+            clk     => adcClk,
+            rst     => adcRst,
+            dataIn  => revSig,
+            dataOut => revSigSyncOneshot);
 
     --------------------------------------------
     -- Instantiate the available trigger modules
@@ -103,10 +134,10 @@ begin
 
     gen_trigs : for i in 0 to 1 generate
         -- Threshold Trigger
-        ThrTrig_inst : entity work.ThrTrig
+        U_ThrTrig : entity work.ThrTrig
             generic map(
                 TPD_G           => TPD_G,
-                DATA_WIDTH_G    => 16,
+                DATA_WIDTH_G    => DATA_WIDTH_C,
                 SAFE_HYST_EN_G  => true,
                 NUM_ADDR_BITS_G => 16)
             port map(
@@ -122,10 +153,10 @@ begin
                 axilReadSlave   => axilReadSlaves(AXIL_THR_TRIG_INDEX_BASE+i));
 
         -- Time-Over-Threshold Trigger
-        TotTrig_inst : entity work.TotTrig
+        U_TotTrig : entity work.TotTrig
             generic map(
                 TPD_G           => TPD_G,
-                DATA_WIDTH_G    => 16,
+                DATA_WIDTH_G    => DATA_WIDTH_C,
                 SAFE_HYST_EN_G  => true,
                 NUM_ADDR_BITS_G => 16)
             port map(
@@ -140,40 +171,64 @@ begin
                 axilReadMaster  => axilReadMasters(AXIL_TOT_TRIG_INDEX_BASE+i),
                 axilReadSlave   => axilReadSlaves(AXIL_TOT_TRIG_INDEX_BASE+i));
 
-    -- TODO: Revsig synchronized average trigger
+        -- Revsig synchronized integral trigger
+        U_RevSyncIntTrig : entity work.RevSyncIntTrig
+            generic map(
+                TPD_G           => TPD_G,
+                DATA_WIDTH_G    => DATA_WIDTH_C,
+                NUM_PRST_VALS_G => 4,
+                NUM_ADDR_BITS_G => NUM_ADDR_BITS_C)
+            port map(
+                adcClk          => adcClk,
+                adcRst          => adcRst,
+                adcDat          => adcDat(i),
+                revSig          => revSigSyncOneshot,
+                revSyncTrigOut  => revSyncTrigs(i),
+                thrCrossOut     => open,  -- Not required for now
+                axilClk         => axilClk,
+                axilRst         => axilRst,
+                axilWriteMaster => axilWriteMasters(AXIL_REVSYNC_TRIG_INDEX_BASE+i),
+                axilWriteSlave  => axilWriteSlaves(AXIL_REVSYNC_TRIG_INDEX_BASE+i),
+                axilReadMaster  => axilReadMasters(AXIL_REVSYNC_TRIG_INDEX_BASE+i),
+                axilReadSlave   => axilReadSlaves(AXIL_REVSYNC_TRIG_INDEX_BASE+i)
+                );
+
     end generate gen_trigs;
 
     --------------------------------------------------
     -- Synchronize registers used on the adcClk domain
     --------------------------------------------------
 
-    U_SyncVecChecks : entity surf.SynchronizerVector
+    U_SyncVecMasks : entity surf.SynchronizerVector
         generic map (
             TPD_G   => TPD_G,
-            WIDTH_G => 4)
+            WIDTH_G => NUM_CH_C+NUM_TRIG_TYPES_C)
         port map (
             clk     => adcClk,
             dataIn  => syncIn,
             dataOut => syncOut);
 
-    syncIn(1 downto 0) <= r.chMask;
-    syncIn(3 downto 2) <= r.enMask;
-    chMaskSync         <= syncOut(1 downto 0);
-    enMaskSync         <= syncOut(3 downto 2);
+    syncIn(NUM_CH_C-1 downto 0)                         <= r.chMask;
+    syncIn(NUM_CH_C+NUM_TRIG_TYPES_C-1 downto NUM_CH_C) <= r.enMask;
+    chMaskSync                                          <= syncOut(NUM_CH_C-1 downto 0);
+    enMaskSync                                          <= syncOut(NUM_CH_C+NUM_TRIG_TYPES_C-1 downto NUM_CH_C);
 
 
     -----------------------
     -- Trigger output logic
     -----------------------
 
-    -- For now same channel mask for all trigger types. 
+    -- For now same channel mask for all trigger types.
     -- Can extend this to per-type mask if required later.
     -- Enable mask idx 0: Threshold trigger
     -- Enable mask idx 1: Time-over-threshold trigger
+    -- Enable mask idx 2: Revolution signal synchronized integral trigger
     abortTrig <= (
         (uOr(thrTrigs and chMaskSync) and enMaskSync(0))
         or
         (uOr(totTrigs and chMaskSync) and enMaskSync(1))
+        or
+        (uOr(revSyncTrigs and chMaskSync) and enMaskSync(2))
         );
 
 
