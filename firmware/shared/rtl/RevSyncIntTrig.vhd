@@ -51,61 +51,63 @@ architecture rtl of RevSyncIntTrig is
         ARMD_S);
 
     type RegType is record
-        revSig          : sl;           -- Registered revolution signal
-        revSigDly       : slv(31 downto 0);  -- Initial delay from revSig until first window
-        revSigDlyCnt    : slv(31 downto 0);  -- Counter to measure time for revSig delay
-        revSigDlyCntRun : sl;  -- Counter running flag (for oneshot operation)
-        revSigPrdCnt    : slv(31 downto 0);  -- Counter to measure revSig period (T=1/f)
-        revSigPrd       : slv(31 downto 0);  -- Counter to latch the measured period to (reference when defining the windows)
-        wndAlgn         : sl;  -- Window align pulse (revSig after delay)
-        wndCnt          : slv(31 downto 0);  -- Counter to measure time for windows
-        wndLngts        : slv32Array(NUM_WNDS_G-1 downto 0);  -- Integration window lengths
-        wndIdx          : slv(31 downto 0);  -- Currently active integration window index
-        wndIdxMax       : slv(31 downto 0);  -- Index at which to wrap back to 0. Must be < NUM_PRST_VALS_G.
-        dat             : slv(DATA_WIDTH_C-1 downto 0);  -- Registered ADC data
-        datInt          : slv(DATA_WIDTH_C*2-1 downto 0);  -- Integrated data
-        datIntLch       : slv(DATA_WIDTH_C*2-1 downto 0);  -- Integrated data latched at last deadline
-        datIntThrs      : slv32Array(NUM_WNDS_G-1 downto 0);  -- Integral value trigger thresholds for each window
-        arm             : sl;           -- Arm/disarm flag
-        keepArm         : sl;           -- Auto re-arm flag
-        thrCrs          : sl;  -- Strobed on integral exceeds threshold (when armed)
-        forceThrCrs     : sl;           -- Force thrCrs strobe (for testing)
-        wndCntAtThrCrs  : slv(31 downto 0);  -- Counter value latched at time of threshold crossing
-        trig            : sl;  -- Trigger output synchronized to the deadline
-        forceTrig       : sl;           -- Force trigger outpt (for testing)
-        state           : StateType;    -- FSM state
-        stateReg        : slv(7 downto 0);   -- FSM state mapped to slv
-        axilReadSlave   : AxiLiteReadSlaveType;
-        axilWriteSlave  : AxiLiteWriteSlaveType;
+        revSig             : sl;        -- Registered revolution signal
+        revSigDly          : slv(31 downto 0);  -- Initial delay from revSig until first window
+        revSigDlyCnt       : slv(31 downto 0);  -- Counter to measure time for revSig delay
+        revSigDlyCntRun    : sl;  -- Counter running flag (for oneshot operation)
+        revSigPrdCnt       : slv(31 downto 0);  -- Counter to measure revSig period (T=1/f)
+        revSigPrd          : slv(31 downto 0);  -- Counter to latch the measured period to (reference when defining the windows)
+        wndAlgn            : sl;  -- Window align pulse (revSig after delay)
+        wndCnt             : slv(31 downto 0);  -- Counter to measure time for windows
+        wndLngts           : slv32Array(NUM_WNDS_G-1 downto 0);  -- Integration window lengths
+        wndIdx             : slv(15 downto 0);  -- Currently active integration window index
+        wndIdxMax          : slv(15 downto 0);  -- Index at which to wrap back to 0. Must be < NUM_PRST_VALS_G.
+        dat                : slv(DATA_WIDTH_C-1 downto 0);  -- Registered ADC data
+        datInt             : slv(DATA_WIDTH_C*2-1 downto 0);  -- Integrated data
+        datIntLch          : slv(DATA_WIDTH_C*2-1 downto 0);  -- Integrated data latched at last deadline
+        datIntThrs         : slv32Array(NUM_WNDS_G-1 downto 0);  -- Integral value trigger thresholds for each window
+        arm                : sl;        -- Arm/disarm flag
+        keepArm            : sl;        -- Auto re-arm flag
+        thrCrs             : sl;  -- Strobed on integral exceeds threshold (when armed)
+        forceThrCrs        : sl;        -- Force thrCrs strobe (for testing)
+        wndCntAtThrCrs     : slv(31 downto 0);  -- Counter value latched at time of threshold crossing
+        wndCntAtThrCrsLchd : sl;  -- Counter value at time of threshold crossing latched flag
+        trig               : sl;  -- Trigger output synchronized to the deadline
+        forceTrig          : sl;        -- Force trigger outpt (for testing)
+        state              : StateType;         -- FSM state
+        stateReg           : slv(7 downto 0);   -- FSM state mapped to slv
+        axilReadSlave      : AxiLiteReadSlaveType;
+        axilWriteSlave     : AxiLiteWriteSlaveType;
     end record RegType;
 
     constant REG_INIT_C : RegType := (
-        revSig          => '0',
-        revSigDly       => (others => '0'),
-        revSigDlyCnt    => (others => '0'),
-        revSigDlyCntRun => '0',
-        revSigPrdCnt    => (others => '0'),
-        revSigPrd       => (others => '0'),
-        wndAlgn         => '0',
-        wndCnt          => (others => '0'),
-        wndLngts        => (others => (others => '0')),
-        wndIdx          => (others => '0'),
-        wndIdxMax       => (others => '0'),
-        dat             => (others => '0'),
-        datInt          => (others => '0'),
-        datIntLch       => (others => '0'),
-        datIntThrs      => (others => (others => '0')),
-        arm             => '0',
-        keepArm         => '1',  -- The usual use case would require re-arming so set here just in case
-        thrCrs          => '0',
-        forceThrCrs     => '0',
-        wndCntAtThrCrs  => (others => '0'),
-        trig            => '0',
-        forceTrig       => '0',
-        state           => IDLE_S,
-        stateReg        => (others => '0'),
-        axilReadSlave   => AXI_LITE_READ_SLAVE_INIT_C,
-        axilWriteSlave  => AXI_LITE_WRITE_SLAVE_INIT_C);
+        revSig             => '0',
+        revSigDly          => (others => '0'),
+        revSigDlyCnt       => (others => '0'),
+        revSigDlyCntRun    => '0',
+        revSigPrdCnt       => (others => '0'),
+        revSigPrd          => (others => '0'),
+        wndAlgn            => '0',
+        wndCnt             => (others => '0'),
+        wndLngts           => (others => (others => '0')),
+        wndIdx             => (others => '0'),
+        wndIdxMax          => (others => '0'),
+        dat                => (others => '0'),
+        datInt             => (others => '0'),
+        datIntLch          => (others => '0'),
+        datIntThrs         => (others => (others => '0')),
+        arm                => '0',
+        keepArm            => '1',  -- The usual use case would require re-arming so set here just in case
+        thrCrs             => '0',
+        forceThrCrs        => '0',
+        wndCntAtThrCrs     => (others => '0'),
+        wndCntAtThrCrsLchd => '0',
+        trig               => '0',
+        forceTrig          => '0',
+        state              => IDLE_S,
+        stateReg           => (others => '0'),
+        axilReadSlave      => AXI_LITE_READ_SLAVE_INIT_C,
+        axilWriteSlave     => AXI_LITE_WRITE_SLAVE_INIT_C);
 
     signal r   : RegType := REG_INIT_C;
     signal rin : RegType;
@@ -190,23 +192,22 @@ begin
         -----------------------------------
         -- Force wndIdxMax in allowed range
         -----------------------------------
-        if (v.wndIdxMax > NUM_WNDS_G) then
-            v.wndIdxMax := toSlv(NUM_WNDS_G, 32);
+        if (v.wndIdxMax > NUM_WNDS_G-1) then
+            v.wndIdxMax := toSlv(NUM_WNDS_G-1, 16);
         end if;
 
         ---------------------------------------------
         -- Integration logic independent of FSM state
         ---------------------------------------------
-        if r.wndAlgn = '1' then         -- re-align takes highest precedence
+        -- Trigger condition used in multiple locations below.
+        trigConditionMet := r.datInt >= r.datIntThrs(conv_integer(r.wndIdx));
+
+        if r.wndAlgn = '1' then  -- Align counter reset must come first in if chain to take precedence
             -- Reset the integral value to 0
             v.datInt := (others => '0');
             -- Start back over at first window
-            v.wndIdx := toSlv(0, 32);
+            v.wndIdx := toSlv(0, 16);
             v.wndCnt := r.wndLngts(0);  -- Preset counter
-        end if;
-
-        -- Trigger condition used in multiple locations below.
-        trigConditionMet := r.datInt >= r.datIntThrs(conv_integer(r.wndIdx));
 
         -- A deadline is reached only when the counter runs out!
         -- Making wndAlgn a deadline would mean that the integration window length
@@ -223,7 +224,7 @@ begin
         -- The user may also poll wndIdx a few times and see if it ever reaches the
         -- intended maximal value (TODO: Could add sticky max val register).
         -- TODO: Check if there are a few cycle differences due to registered signals...
-        if r.wndCnt = 0 then            -- Deadline reached
+        elsif r.wndCnt = 0 then         -- Deadline reached
             -- Check the integral value and strobe trigger if threshold exceeded.
             -- Force trigger works independent of state.
             if (trigConditionMet and (r.state = ARMD_S)) or (r.forceTrig = '1') then
@@ -243,6 +244,9 @@ begin
             -- Reset the integral value to 0
             v.datInt    := (others => '0');
 
+            -- Reset counter value at threshold crossing latched flag
+            v.wndCntAtThrCrsLchd := '0';
+
             -- Determine next window index
             if (r.wndIdx < r.wndIdxMax) then
                 v.wndIdx := r.wndIdx + 1;  -- Increment
@@ -254,8 +258,11 @@ begin
 
             -- Preset the counter with next preset value (reference v not r!)
             v.wndCnt := r.wndLngts(conv_integer(v.wndIdx));
+
         else  -- TODO: Could add a count only when 'running' flag set here...
             v.wndCnt := r.wndCnt - 1;   -- Decrement
+            v.datInt := r.datInt + r.dat;  -- Add to integral value
+
         end if;
 
         -- Keep around also an immediate (not revSig synchronized) threshold crossed
@@ -265,8 +272,11 @@ begin
         -- keepArm (which requires software re-arm after each trigger).
         -- Force threshold crossed strobe works independent of state.
         if (trigConditionMet and (r.state = ARMD_S)) or (r.forceThrCrs = '1') then
-            v.thrCrs         := '1';
-            v.wndCntAtThrCrs := r.wndCnt;
+            v.thrCrs := '1';
+            if r.wndCntAtThrCrsLchd = '0' then
+                v.wndCntAtThrCrs     := r.wndCnt;
+                v.wndCntAtThrCrsLchd := '1';
+            end if;
         end if;
 
         --------------

@@ -181,7 +181,7 @@ class RevSyncIntTrig(pr.Device):
                 name="WndIdx",
                 description="Current window index",
                 offset=0x18,
-                bitSize=32,
+                bitSize=16,
                 mode="RO",
                 hidden=False,
             )
@@ -274,7 +274,7 @@ class RevSyncIntTrig(pr.Device):
                 name="WndIdxMax",
                 description="Maximum window index (must be <= NUM_WNDS_G hard limit)",
                 offset=0x34,
-                bitSize=32,
+                bitSize=16,
                 mode="RW",
                 hidden=False,
             )
