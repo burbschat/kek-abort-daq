@@ -108,22 +108,33 @@ begin
         --------------------------------------
         -- Axi reads/writes (block until done)
         --------------------------------------
-        -- axiLiteBusSimRead (axilClk, axilReadMaster, axilReadSlave, x"0000_0030", debugData, true);
+
+        wait for 10 ns;  -- First write does not register immediately after reset...
 
         -- Set revSigDly to 16 cycles
+        -- Logic ensures that 16 cycles means window start boundary (integral/counters reset)
+        -- aligned exactly at 16 cycles after the pulse on the revSig port.
         axiLiteBusSimWrite (axilClk, axilWriteMaster, axilWriteSlave, x"0000_0030", x"0000_0010", true);
-        -- Set revSigDly to 16 cycles
-        axiLiteBusSimWrite (axilClk, axilWriteMaster, axilWriteSlave, x"0000_0030", x"0000_0010", true);
+        -- Readback for confirmation
+        axiLiteBusSimRead (axilClk, axilReadMaster, axilReadSlave, x"0000_0030", debugData, true);
 
         -- Set wndIdxMax to 1 (e.g. 2 windows)
         axiLiteBusSimWrite (axilClk, axilWriteMaster, axilWriteSlave, x"0000_0034", x"0000_0001", true);
         -- Readback for confirmation
         axiLiteBusSimRead (axilClk, axilReadMaster, axilReadSlave, x"0000_0034", debugData, true);
 
-        -- Set wndLngts(0) to 512
-        axiLiteBusSimWrite (axilClk, axilWriteMaster, axilWriteSlave, x"0000_0038", x"0000_0200", true);
-        -- Set wndLngts(1) to 512
-        axiLiteBusSimWrite (axilClk, axilWriteMaster, axilWriteSlave, x"0000_003C", x"0000_0200", true);
+        -- Set wndLngts(0) to 16
+        -- Logic ensures that 16 cycles means window start boundaries (integral/counters reset)
+        -- are spaced by exactly 16 cycles. Thus with two windows, length 16 each, everything
+        -- repeats after exactly 16 + 16 = 32 cycles. In this case, to process the second
+        -- deadline and issue a trigger if required, the window align pulses (equivalently revSig)
+        -- must be spaced by 32 or more cycles. Verify with revSigPrd register which is set
+        -- to exactly equal the number of cycles between refSig pulses (counting between them)
+        -- so that one can check that the sum of all window lengths <= revSigPrd, which is the
+        -- condition for the last window deadline to be processed.
+        axiLiteBusSimWrite (axilClk, axilWriteMaster, axilWriteSlave, x"0000_0038", x"0000_0010", true);
+        -- Set wndLngts(1) to 16
+        axiLiteBusSimWrite (axilClk, axilWriteMaster, axilWriteSlave, x"0000_003C", x"0000_0010", true);
 
         -- Set datIntThrs(0) to 4096
         axiLiteBusSimWrite (axilClk, axilWriteMaster, axilWriteSlave, x"0000_0058", x"0000_1000", true);
@@ -153,8 +164,8 @@ begin
         -- For now, let the data be the counter
         v.dat := r.cnt;
 
-        -- Generate a revolution signal pulse every 1024 counts
-        if r.cnt(9 downto 0) = 0 then
+        -- Generate a revolution signal pulse every 64 counts
+        if r.cnt(5 downto 0) = 0 then
             v.revSig := '1';
         end if;
 

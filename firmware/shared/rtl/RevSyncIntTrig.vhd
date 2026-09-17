@@ -46,6 +46,11 @@ architecture rtl of RevSyncIntTrig is
     -- all that will be needed in practice.
     constant DATA_WIDTH_C : positive := 16;
 
+    -- Count corrections to get cycle accurate behaviour wrt. the register values.
+    -- Required as some cycles are mandatory given the register based logic.
+    constant REV_SIG_DLY_CYLCOMP_C : positive := 3;  -- Make number correct wrt. signal at revSig port!
+    constant WND_LNG_CYLCOMP_C     : positive := 1;
+
     type StateType is (
         IDLE_S,
         ARMD_S);
@@ -169,31 +174,29 @@ begin
         ---------------------------------------------------------
         -- Apply digital delay to revSig pulse and measure period
         ---------------------------------------------------------
-        if r.revSig = '1' then
-            v.revSigDlyCnt    := r.revSigDly;  -- Preset counter with delay value
+        if r.revSig = '1' then  -- Could also use v and reduce cyclecomp to 1...
+            v.revSigDlyCnt    := (others => '0');  -- Reset delay counter
             v.revSigDlyCntRun := '1';   -- start the counter
 
-            v.revSigPrd    := r.revSigPrdCnt;  -- Latch counts since last revSig (measured period)
-            v.revSigPrdCnt := (others => '0');     -- Reset period counter
+            v.revSigPrd       := r.revSigPrdCnt;  -- Latch counts since last revSig (measured period)
+            -- Reset period counter. Reset to 1 to make the number in the register equal
+            -- the number of cycles between pulses, starting to count at the rising edge
+            -- of the first one and counting cycles until the cycle before the rising edge
+            -- of the next one.
+            v.revSigPrdCnt    := (others => '0');
+            v.revSigPrdCnt(0) := '1';
         else
             v.revSigPrdCnt := r.revSigPrdCnt + 1;  -- Increment
         end if;
 
         -- Update or check delay counter if running
         if r.revSigDlyCntRun = '1' then
-            if r.revSigDlyCnt = 0 then
+            if r.revSigDlyCnt = r.revSigDly - REV_SIG_DLY_CYLCOMP_C then
                 v.revSigDlyCntRun := '0';              -- Stop counter
                 v.wndAlgn         := '1';              -- Strobe window align
             else
-                v.revSigDlyCnt := r.revSigDlyCnt - 1;  -- Decrement
+                v.revSigDlyCnt := r.revSigDlyCnt + 1;  -- Increment
             end if;
-        end if;
-
-        -----------------------------------
-        -- Force wndIdxMax in allowed range
-        -----------------------------------
-        if (v.wndIdxMax > NUM_WNDS_G-1) then
-            v.wndIdxMax := toSlv(NUM_WNDS_G-1, 16);
         end if;
 
         ---------------------------------------------
@@ -202,14 +205,7 @@ begin
         -- Trigger condition used in multiple locations below.
         trigConditionMet := r.datInt >= r.datIntThrs(conv_integer(r.wndIdx));
 
-        if r.wndAlgn = '1' then  -- Align counter reset must come first in if chain to take precedence
-            -- Reset the integral value to 0
-            v.datInt := (others => '0');
-            -- Start back over at first window
-            v.wndIdx := toSlv(0, 16);
-            v.wndCnt := r.wndLngts(0);  -- Preset counter
-
-        -- A deadline is reached only when the counter runs out!
+        -- A deadline is reached only when the reached the set length value!
         -- Making wndAlgn a deadline would mean that the integration window length
         -- is dynamic and as we do not normalize by the length this cannot be
         -- tolerated.
@@ -224,7 +220,7 @@ begin
         -- The user may also poll wndIdx a few times and see if it ever reaches the
         -- intended maximal value (TODO: Could add sticky max val register).
         -- TODO: Check if there are a few cycle differences due to registered signals...
-        elsif r.wndCnt = 0 then         -- Deadline reached
+        if r.wndCnt = r.wndLngts(conv_integer(v.wndIdx)) - WND_LNG_CYLCOMP_C then  -- Deadline reached
             -- Check the integral value and strobe trigger if threshold exceeded.
             -- Force trigger works independent of state.
             if (trigConditionMet and (r.state = ARMD_S)) or (r.forceTrig = '1') then
@@ -240,9 +236,10 @@ begin
             end if;
 
             -- Latch integral value at deadline for reference
-            v.datIntLch := r.datInt;
-            -- Reset the integral value to 0
-            v.datInt    := (others => '0');
+            v.datIntLch                       := r.datInt;
+            -- Reset the integral value
+            v.datInt                          := (others => '0');
+            v.datInt(DATA_WIDTH_C-1 downto 0) := r.dat;  -- Reset to data value to not miss one cycle of data
 
             -- Reset counter value at threshold crossing latched flag
             v.wndCntAtThrCrsLchd := '0';
@@ -256,12 +253,29 @@ begin
                 v.wndIdx := (others => '0');
             end if;
 
-            -- Preset the counter with next preset value (reference v not r!)
-            v.wndCnt := r.wndLngts(conv_integer(v.wndIdx));
+            -- Reset the counter
+            v.wndCnt := (others => '0');
 
         else  -- TODO: Could add a count only when 'running' flag set here...
-            v.wndCnt := r.wndCnt - 1;   -- Decrement
+            v.wndCnt := r.wndCnt + 1;   -- Increment 
             v.datInt := r.datInt + r.dat;  -- Add to integral value
+
+        end if;
+
+        -- Use v not r to save one cycle and keep the window lengths and integral
+        -- reset behaviour consistent with the 'already counting' case.
+        -- Align counter reset to take precedence to ensure the wndIdx is reset by it.
+        -- The integral reset may be redundant with the one on window end. Both cases
+        -- are NOT exclusive (if ... else) to allow a trigger due to window end to
+        -- be able to still occur if the wndAlgn and window end coincide.
+        if v.wndAlgn = '1' then
+            -- Reset the integral value
+            v.datInt                          := (others => '0');
+            v.datInt(DATA_WIDTH_C-1 downto 0) := r.dat;  -- Reset to data value to not miss one cycle of data
+
+            -- Start back over at first window
+            v.wndIdx := toSlv(0, 16);
+            v.wndCnt := (others => '0');  -- Reset counter
 
         end if;
 
@@ -362,6 +376,26 @@ begin
 
         -- Closeout the transaction
         axiSlaveDefault(axilEp, v.axilWriteSlave, v.axilReadSlave, AXI_RESP_DECERR_C);
+
+        -----------------------------------
+        -- Force registers in allowed range
+        -----------------------------------
+        if (v.wndIdxMax > NUM_WNDS_G-1) then
+            v.wndIdxMax := toSlv(NUM_WNDS_G-1, 16);
+        end if;
+
+        if (v.revSigDly < REV_SIG_DLY_CYLCOMP_C) then
+            -- toSlv only works with up to 31 bits...
+            v.revSigDly := conv_std_logic_vector(REV_SIG_DLY_CYLCOMP_C, 32);
+        end if;
+
+        for i in 0 to NUM_WNDS_G-1 loop
+            if (v.wndLngts(i) < WND_LNG_CYLCOMP_C) then
+                -- toSlv only works with up to 31 bits...
+                v.wndLngts(i) := conv_std_logic_vector(WND_LNG_CYLCOMP_C, 32);
+            end if;
+        end loop;
+
 
         ----------------------------------------------------------------------
 
