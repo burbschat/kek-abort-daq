@@ -175,16 +175,18 @@ begin
         U_RevSyncIntTrig : entity work.RevSyncIntTrig
             generic map(
                 TPD_G           => TPD_G,
-                DATA_WIDTH_G    => DATA_WIDTH_C,
-                NUM_PRST_VALS_G => 4,
+                NUM_WNDS_G      => 2,
                 NUM_ADDR_BITS_G => NUM_ADDR_BITS_C)
             port map(
                 adcClk          => adcClk,
                 adcRst          => adcRst,
                 adcDat          => adcDat(i),
+                -- Revolution signal input
                 revSig          => revSigSyncOneshot,
-                revSyncTrigOut  => revSyncTrigs(i),
-                thrCrossOut     => open,  -- Not required for now
+                -- Trigger outputs
+                trigOut         => revSyncTrigs(i),
+                thrCrsOut       => open,  -- Not required for now
+                -- AXI-Lite Interface (axilClk domain)
                 axilClk         => axilClk,
                 axilRst         => axilRst,
                 axilWriteMaster => axilWriteMasters(AXIL_REVSYNC_TRIG_INDEX_BASE+i),
