@@ -142,7 +142,7 @@ class TotTrig(pr.Device):
 
         self.add(
             pr.RemoteVariable(
-                name="TotCountTrigRaw",
+                name="TotCountTrig",
                 description="Preset value for time over threshold counter used in trigger logic",
                 offset=0x14,
                 bitSize=32,
@@ -153,17 +153,17 @@ class TotTrig(pr.Device):
 
         self.add(
             pr.LinkVariable(
-                name="Tot",
+                name="TotUs",
                 description="Time over threshold value in microseconds at which to trigger",
                 mode="RW",
                 units="us",
                 disp="{:0.5g}",
-                dependencies=[self.TrigRingBufDlyRaw],
+                dependencies=[self.TotCountTrig],
                 # Note that raw value 0 means one delay cycle due to the FSM implementation.
                 # At least I believe so. Verify in simulation/hardware if this is critical (TODO).
                 # Must pass the *correct* clock frequency in MHz for this conversion to work!
-                linkedGet=lambda: (float(self.TotCountTrigRaw.value() + 1) * (1.0 / clkFreqMhz)),
-                linkedSet=lambda value, write: self.TotCountTrigRaw.set(int(value / (1.0 / clkFreqMhz)) - 1),
+                linkedGet=lambda: (float(self.TotCountTrig.value() + 1) * (1.0 / clkFreqMhz)),
+                linkedSet=lambda value, write: self.TotCountTrig.set(int(value / (1.0 / clkFreqMhz)) - 1),
             )
         )
 

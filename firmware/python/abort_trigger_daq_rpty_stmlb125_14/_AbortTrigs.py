@@ -8,7 +8,8 @@ class AbortTrigs(pr.Device):
         super().__init__(**kwargs)
 
         n_adc_channels = 2
-        self._trigger_type_names = ["Thr", "Tot"]
+        self._trigger_type_names = ["Thr", "Tot", "RevSyncInt"]
+        n_trig_types = len(self._trigger_type_names)
 
         # self.add(
         #     pr.RemoteVariable(
@@ -26,16 +27,16 @@ class AbortTrigs(pr.Device):
         #     pr.RemoteVariable(
         #         name="ChMask",
         #         description="ADC channel enable mask",
-        #         offset=0x0,
-        #         bitOffset=2,
-        #         bitSize=2,
+        #         offset=0x4,
+        #         bitOffset=0,
+        #         bitSize=3,
         #         mode="RW",
         #         hidden=False,
         #     )
         # )
 
         # Add each bit as a single variable with more intuitive name
-        for i in range(n_adc_channels):
+        for i in range(n_trig_types):
             self.add(
                 pr.RemoteVariable(
                     name=f"{self._trigger_type_names[i]}En",
@@ -48,12 +49,13 @@ class AbortTrigs(pr.Device):
                 )
             )
 
+        for i in range(n_adc_channels):
             self.add(
                 pr.RemoteVariable(
                     name=f"Ch{i}En",
                     description=f"Enable channel {i} in the trigger output or chain",
-                    offset=0x0,
-                    bitOffset=2 + i,
+                    offset=0x4,
+                    bitOffset=i,
                     bitSize=1,
                     mode="RW",
                     hidden=False,
@@ -67,5 +69,9 @@ class AbortTrigs(pr.Device):
             offset += offset_increment
 
         for i in range(n_adc_channels):
-            self.add(rpty.TotTrig(name=f"TotTrig[{i}]", offset=offset))
+            self.add(rpty.TotTrig(name=f"TotTrig[{i}]", offset=offset, clkFreqMhz=125.0))
+            offset += offset_increment
+
+        for i in range(n_adc_channels):
+            self.add(rpty.RevSyncIntTrig(name=f"RevSyncIntTrig[{i}]", offset=offset, clkFreqMhz=125.0, numWnds=2))
             offset += offset_increment

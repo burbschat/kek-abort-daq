@@ -2,7 +2,7 @@ import pyrogue as pr
 
 
 class RevSyncIntTrig(pr.Device):
-    def __init__(self, num_wnds=8, **kwargs):
+    def __init__(self, clkFreqMhz, numWnds=8, **kwargs):
         super().__init__(**kwargs)
 
         self._trigStatesEnum = {
@@ -166,6 +166,18 @@ class RevSyncIntTrig(pr.Device):
         )
 
         self.add(
+            pr.LinkVariable(
+                name="RevSigPrdUs",
+                description="Revolution signal period count (in us)",
+                mode="RO",
+                units="us",
+                disp="{:0.5g}",
+                dependencies=[self.RevSigPrd],
+                linkedGet=lambda: (float(self.RevSigPrd.value()) * (1.0 / clkFreqMhz)),
+            )
+        )
+
+        self.add(
             pr.RemoteVariable(
                 name="WndCnt",
                 description="Window length counter",
@@ -264,6 +276,7 @@ class RevSyncIntTrig(pr.Device):
                 description="Revolution signal delay until start of first window",
                 offset=0x30,
                 bitSize=32,
+                minimum=3,  # Minimum possible given current HDL implementation
                 mode="RW",
                 hidden=False,
             )
@@ -289,20 +302,34 @@ class RevSyncIntTrig(pr.Device):
         #
         # ------------------------------------------------------------------
 
-        if num_wnds > 8:
+        if numWnds > 8:
             raise IndexError("num_wnds must be smaller or equal to maximal value of 8.")
 
         # If num_wnds larger than what is mapped in firmware, the non-mapped
         # registers will always return 0 as the addresses are reserved.
-        for i in range(num_wnds):
+        for i in range(numWnds):
+            wndLngth = pr.RemoteVariable(
+                name=f"WndLngts[{i}]",
+                description=f"Window {i} length (in clock cycles)",
+                offset=0x38 + i * 4,
+                bitSize=32,
+                minimum=1,  # Minimum possible given current HDL implementation
+                mode="RW",
+                hidden=False,
+            )
+
+            self.add(wndLngth)
+
             self.add(
-                pr.RemoteVariable(
-                    name=f"WndLngts[{i}]",
-                    description=f"Window {i} length (in clock cycles)",
-                    offset=0x38 + i * 4,
-                    bitSize=32,
+                pr.LinkVariable(
+                    name=f"WndLngtsUs[{i}]",
+                    description=f"Window {i} length (in us)",
                     mode="RW",
-                    hidden=False,
+                    units="us",
+                    disp="{:0.5g}",
+                    dependencies=[wndLngth],
+                    linkedGet=lambda raw=wndLngth: (float(raw.value()) * (1.0 / clkFreqMhz)),
+                    linkedSet=lambda value, write, raw=wndLngth: raw.set(int(value / (1.0 / clkFreqMhz))),
                 )
             )
 

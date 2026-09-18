@@ -259,7 +259,7 @@ begin
         -------------------------
 
         axiSlaveRegister (axilEp, x"00", 0, v.enMask);  -- Trigger type enable mask
-        axiSlaveRegister (axilEp, x"00", 2, v.chMask);  -- Channel enable mask
+        axiSlaveRegister (axilEp, x"04", 0, v.chMask);  -- Channel enable mask
 
         -- Closeout the transaction
         axiSlaveDefault(axilEp, v.axilWriteSlave, v.axilReadSlave, AXI_RESP_DECERR_C);
