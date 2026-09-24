@@ -7,3 +7,4 @@ from abort_trigger_daq_rpty_stmlb125_14._ThrTrig import *
 from abort_trigger_daq_rpty_stmlb125_14._TotTrig import *
 from abort_trigger_daq_rpty_stmlb125_14._AbortTrigs import *
 from abort_trigger_daq_rpty_stmlb125_14._RevSyncIntTrig import *
+from abort_trigger_daq_rpty_stmlb125_14._RevSigCtrl import *

@@ -2,8 +2,10 @@ import pyrogue as pr
 
 
 class RevSyncIntTrig(pr.Device):
-    def __init__(self, clkFreqMhz, numWnds=8, **kwargs):
+    def __init__(self, clkFreq, numWnds=8, **kwargs):
         super().__init__(**kwargs)
+
+        clkFreqMhz = clkFreq * 1e-6
 
         self._trigStatesEnum = {
             0x0: "IDLE",

@@ -4,7 +4,7 @@ import abort_trigger_daq_rpty_stmlb125_14 as rpty
 
 
 class AbortTrigs(pr.Device):
-    def __init__(self, **kwargs):
+    def __init__(self, clkFreq=125.0e6, **kwargs):
         super().__init__(**kwargs)
 
         n_adc_channels = 2
@@ -69,9 +69,9 @@ class AbortTrigs(pr.Device):
             offset += offset_increment
 
         for i in range(n_adc_channels):
-            self.add(rpty.TotTrig(name=f"TotTrig[{i}]", offset=offset, clkFreqMhz=125.0))
+            self.add(rpty.TotTrig(name=f"TotTrig[{i}]", offset=offset, clkFreq=clkFreq))
             offset += offset_increment
 
         for i in range(n_adc_channels):
-            self.add(rpty.RevSyncIntTrig(name=f"RevSyncIntTrig[{i}]", offset=offset, clkFreqMhz=125.0, numWnds=2))
+            self.add(rpty.RevSyncIntTrig(name=f"RevSyncIntTrig[{i}]", offset=offset, clkFreq=clkFreq, numWnds=2))
             offset += offset_increment
