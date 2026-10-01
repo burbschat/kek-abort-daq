@@ -109,15 +109,6 @@ class RevSigCtrl(pr.Device):
         ))
 
         self.add(pr.RemoteVariable(
-            name         = 'dummyRevVal',
-            description  = 'Dummy revolution signal value',
-            offset       = 0x14,
-            bitSize      = 1,
-            bitOffset    = 1,
-            mode         = 'RO',
-        ))
-
-        self.add(pr.RemoteVariable(
             name         = 'revOutVal',
             description  = 'Revolution signal output value',
             offset       = 0x14,
