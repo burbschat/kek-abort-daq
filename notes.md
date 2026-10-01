@@ -2,7 +2,7 @@
 ## Manually loading kernel drivers/firmware
 ```sh
 fpgautil -b /boot/system.bin 
-insmod /lib/modules/$(uname -r)/updates/axi_memory_map.ko plMinAddr=0x40000000 plMaxAddr=0x07FFFFFFF
+insmod /lib/modules/$(uname -r)/updates/axi_memory_map.ko plMinAddr=0x40000000 plMaxAddr=0x7FFFFFFF
 insmod /lib/modules/$(uname -r)/updates/axi_stream_dma.ko cfgTxCount0=16 cfgRxCount0=84 cfgSize0=0x10000
 ```
 
