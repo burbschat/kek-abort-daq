@@ -53,8 +53,12 @@ entity AbortTriggerDaqRptyStmlb125_14 is
         led_o             : out   slv(7 downto 0);
         -- ADC data lines
         adc_dat_a_i       : in    slv(15 downto 0);
-        adc_dat_b_i       : in    slv(15 downto 0)
-        );
+        adc_dat_b_i       : in    slv(15 downto 0);
+        -- Application specific ports
+        abortReq          : out   sl;   -- Abort request output
+        revSig            : in    sl;   -- Revolution signal input
+        injSig            : in    sl;   -- Injection signal input
+        extTrig           : in    sl);  -- External trigger input
 end entity AbortTriggerDaqRptyStmlb125_14;
 
 architecture top_level of AbortTriggerDaqRptyStmlb125_14 is
@@ -198,6 +202,11 @@ begin
             -- Application)
             adcClk          => adcClk,
             adcDat(0)       => adc_dat_a_i,
-            adcDat(1)       => adc_dat_b_i);
+            adcDat(1)       => adc_dat_b_i,
+            -- Application specific ports
+            abortReq        => abortReq,
+            revSigIn        => revSig,
+            injSig          => injSig,
+            extTrig         => extTrig);
 
 end architecture top_level;

@@ -26,6 +26,10 @@ entity AbortTrigs is
         adcDat          : in  Slv16Array(1 downto 0);
         -- Revolution signal input
         revSig          : in  sl;
+        -- Injection signal input (use for veto)
+        -- TODO: Implement veto functionality in this module.
+        -- Should have window and delay setting.
+        injSig          : in  sl;
         -- Trigger output
         abortTrig       : out sl;
         -- AXI-Lite Interface (axilClk domain)
