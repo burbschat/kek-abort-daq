@@ -90,8 +90,23 @@ class Root(pr.Root):
         else:
             self.ringBufferAdc = [rogue.hardware.axi.AxiStreamDma("/dev/axi_stream_dma_0", i + 0, True) for i in range(n_adc_channels)]
 
-        self.adcDropFifo = [pr.interfaces.stream.Fifo(name=f"AdcDropFifo[{i}]", maxDepth=1, hidden=False) for i in range(n_adc_channels)]  # Drop if more than 1 frame in FIFO
-        self.adcRingProcessor = [hardware_core.RingBufferProcessor(name=f"AdcProcessor[{i}]", sampleRate=sampleRate) for i in range(n_adc_channels)]
+        self.adcDropFifo = [
+            pr.interfaces.stream.Fifo(
+                name=f"AdcDropFifo[{i}]",
+                maxDepth=1,
+                hidden=False,
+            )
+            for i in range(n_adc_channels)
+        ]  # Drop if more than 1 frame in FIFO
+
+        self.adcRingProcessor = [
+            hardware_core.RingBufferProcessor(
+                name=f"AdcProcessor[{i}]",
+                sampleRate=sampleRate,
+                maxSize=2**14,
+            )
+            for i in range(n_adc_channels)
+        ]
 
         # Connect streams, add stream endpoints to tree (optional)
         for i in range(n_adc_channels):

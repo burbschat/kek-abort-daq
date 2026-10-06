@@ -169,7 +169,7 @@ begin
                 MEMORY_TYPE_G       => "block",
                 COMMON_CLK_G        => false,  -- In this design in general axisClk is not same as axilClk (see top module)
                 DATA_BYTES_G        => 2,  -- 16 bit (2 byte) per clock from ADC
-                RAM_ADDR_WIDTH_G    => 13,  -- Decides size of the buffer (2**13=8192 words)
+                RAM_ADDR_WIDTH_G    => 14,  -- Decides size of the buffer (2**15=32768 words)
                 -- AXI Stream Configurations
                 FIFO_MEMORY_TYPE_G  => "block",
                 FIFO_ADDR_WIDTH_G   => 9,
