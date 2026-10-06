@@ -62,6 +62,11 @@ architecture mapping of AbortTrigs is
     constant AXIL_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXIL_MASTERS_C-1 downto 0)
         := genAxiLiteConfig(NUM_AXIL_MASTERS_C, AXIL_BASE_ADDR_G, BASE_BOT_C, NUM_ADDR_BITS_C);
 
+    -- Count corrections to get cycle accurate behaviour wrt. the register values.
+    -- Required as some cycles are mandatory given the register based logic.
+    constant INJ_SIG_DLY_CYLCOMP_C     : positive := 2;  -- Make number correct wrt. signal at revSig port!
+    constant INJ_VET_WND_LNG_CYLCOMP_C : positive := 1;
+
     signal axilAdcReadMasters : AxiLiteReadMasterArray(NUM_AXIL_MASTERS_C-1 downto 0);
     signal axilAdcReadSlaves  : AxiLiteReadSlaveArray(NUM_AXIL_MASTERS_C-1 downto 0)
         := (others => AXI_LITE_READ_SLAVE_EMPTY_DECERR_C);
@@ -70,17 +75,33 @@ architecture mapping of AbortTrigs is
         := (others => AXI_LITE_WRITE_SLAVE_EMPTY_DECERR_C);
 
     type RegType is record
-        enMask         : slv(NUM_TRIG_TYPES_C-1 downto 0);
-        chMask         : slv(NUM_CH_C-1 downto 0);
-        axilReadSlave  : AxiLiteReadSlaveType;
-        axilWriteSlave : AxiLiteWriteSlaveType;
+        enMask          : slv(NUM_TRIG_TYPES_C-1 downto 0);
+        chMask          : slv(NUM_CH_C-1 downto 0);
+        injSig          : sl;
+        injSigDly       : slv(31 downto 0);  -- Initial delay from injSig until veto window
+        injSigDlyCnt    : slv(31 downto 0);  -- Counter to measure time for injSig delay
+        injSigDlyCntRun : sl;           -- Counter running flag
+        injVetWndLen    : slv(31 downto 0);  -- Set injection veto window length
+        injVetWndCnt    : slv(31 downto 0);  -- Counter to measure injection veto window
+        injVetActive    : sl;           -- Veto active flag
+        injVetEn        : sl;           -- Injection veto enable register
+        axilReadSlave   : AxiLiteReadSlaveType;
+        axilWriteSlave  : AxiLiteWriteSlaveType;
     end record RegType;
 
     constant REG_INIT_C : RegType := (
-        enMask         => (others => '0'),
-        chMask         => (others => '0'),
-        axilReadSlave  => AXI_LITE_READ_SLAVE_INIT_C,
-        axilWriteSlave => AXI_LITE_WRITE_SLAVE_INIT_C);
+        enMask          => (others => '0'),
+        chMask          => (others => '0'),
+        injSig          => '0',
+        injSigDly       => (others => '0'),
+        injSigDlyCnt    => (others => '0'),
+        injSigDlyCntRun => '0',
+        injVetWndLen    => (others => '0'),
+        injVetWndCnt    => (others => '0'),
+        injVetActive    => '0',
+        injVetEn        => '0',
+        axilReadSlave   => AXI_LITE_READ_SLAVE_INIT_C,
+        axilWriteSlave  => AXI_LITE_WRITE_SLAVE_INIT_C);
 
     signal r   : RegType := REG_INIT_C;
     signal rin : RegType;
@@ -267,7 +288,7 @@ begin
         (uOr(totTrigs and r.chMask) and r.enMask(1))
         or
         (uOr(revSyncTrigs and r.chMask) and r.enMask(2))
-        );
+        ) and not (r.injVetActive and r.injVetEn);  -- Apply the veto if enabled
 
     --------------------------
     -- Configuration registers
@@ -275,13 +296,44 @@ begin
 
     comb : process (axilAdcReadMasters(AXIL_REG_INDEX),
                     axilAdcWriteMasters(AXIL_REG_INDEX),
-                    r, axilAdcRst) is
+                    r, axilAdcRst, injSig) is
         variable v      : RegType;
         variable axilEp : AxiLiteEndPointType;
     begin
 
         -- Latch the current value
         v := r;
+
+        -- Register injSig value
+        v.injSig := injSig;
+
+        -----------------------
+        -- Injection Veto Logic
+        -----------------------
+
+        -- TODO: make cycle accurate (if required)
+        if r.injSig = '1' then
+            v.injSigDlyCnt    := (others => '0');  -- Reset delay counter
+            v.injSigDlyCntRun := '1';
+        end if;
+
+        if r.injSigDlyCntRun = '1' then
+            if r.injSigDlyCnt >= r.injSigDly - INJ_SIG_DLY_CYLCOMP_C then
+                v.injSigDlyCntRun := '0';  -- Stop counter
+                v.injVetWndCnt    := (others => '0');  -- Reset veto window counter
+                v.injVetActive    := '1';  -- Set injection veto active
+            else
+                v.injSigDlyCnt := r.injSigDlyCnt + 1;  -- Increment
+            end if;
+        end if;
+
+        if r.injVetActive = '1' then
+            if r.injVetWndCnt >= r.injVetWndLen - INJ_VET_WND_LNG_CYLCOMP_C then
+                v.injVetActive := '0';  -- Set injection veto inactive
+            else
+                v.injVetWndCnt := r.injVetWndCnt + 1;  -- Increment
+            end if;
+        end if;
 
         --------------------------
         -- AXI-Lite Register Logic
@@ -299,9 +351,30 @@ begin
 
         axiSlaveRegister (axilEp, x"00", 0, v.enMask);  -- Trigger type enable mask
         axiSlaveRegister (axilEp, x"04", 0, v.chMask);  -- Channel enable mask
+        axiSlaveRegisterR(axilEp, x"08", 0, v.injSig);  -- Injection signal input readback
+        axiSlaveRegisterR(axilEp, x"08", 1, v.injSigDlyCntRun);  -- Injection signal delay counter running flag readback
+        axiSlaveRegisterR(axilEp, x"08", 2, v.injVetActive);  -- Injection veto active readback
+        axiSlaveRegister (axilEp, x"0C", 0, v.injSigDly);  -- Injection signal delay count max value
+        axiSlaveRegisterR(axilEp, x"10", 0, v.injSigDlyCnt);  -- Injection signal delay count readback
+        axiSlaveRegister (axilEp, x"14", 0, v.injVetWndLen);  -- Injection veto window length
+        axiSlaveRegisterR(axilEp, x"18", 0, v.injVetWndCnt);  -- Injection veto window length counter readback
+        axiSlaveRegister (axilEp, x"1C", 0, v.injVetEn);  -- Injection veto enable (i.e. actually veto the trigger outputs)
 
         -- Closeout the transaction
         axiSlaveDefault(axilEp, v.axilWriteSlave, v.axilReadSlave, AXI_RESP_DECERR_C);
+
+        -----------------------------------
+        -- Force registers in allowed range
+        -----------------------------------
+        if (v.injSigDly < INJ_SIG_DLY_CYLCOMP_C) then
+            -- toSlv only works with up to 31 bits...
+            v.injSigDly := conv_std_logic_vector(INJ_SIG_DLY_CYLCOMP_C, 32);
+        end if;
+
+        if (v.injVetWndLen < INJ_VET_WND_LNG_CYLCOMP_C) then
+            -- toSlv only works with up to 31 bits...
+            v.injVetWndLen := conv_std_logic_vector(INJ_VET_WND_LNG_CYLCOMP_C, 32);
+        end if;
 
         ----------------------------------------------------------------------
 

@@ -19,19 +19,21 @@ architecture testbed of AbortTrigsTb is
     type RegType is record
         dat    : slv(15 downto 0);
         revSig : sl;
+        injSig : sl;
         cnt    : slv(15 downto 0);
     end record;
 
     constant REG_INIT_C : RegType := (
         dat    => (others => '0'),
         revSig => '0',
+        injSig => '0',
         cnt    => (others => '0'));
 
     signal r   : RegType := REG_INIT_C;
     signal rin : RegType;
 
-    signal adcClk : sl := '0';
-    signal adcRst : sl := '1';
+    signal adcClk  : sl := '0';
+    signal adcRst  : sl := '1';
     signal axilClk : sl := '0';
     signal axilRst : sl := '1';
 
@@ -88,7 +90,7 @@ begin
             -- Revolution signal input
             revSig          => r.revSig,
             -- Injection signal input (use for veto)
-            injSig          => '0',
+            injSig          => r.injSig,
             -- Trigger output
             abortTrig       => open,
             -- AXI-Lite Interface (axilClk domain)
@@ -116,12 +118,37 @@ begin
 
         wait for 50 ns;  -- First write does not register immediately after reset...
 
-        -- Attempt write to chMask register
+        -- Setup registers for injection veto test
+
+        -- Set delay
+        axiLiteBusSimWrite (axilClk, axilWriteMaster, axilWriteSlave, x"0000_000C", x"0000_0010", true);
+        axiLiteBusSimRead (axilClk, axilReadMaster, axilReadSlave, x"0000_000C", debugData, true);
+        -- Set window length
+        axiLiteBusSimWrite (axilClk, axilWriteMaster, axilWriteSlave, x"0000_0014", x"0000_0040", true);
+        axiLiteBusSimRead (axilClk, axilReadMaster, axilReadSlave, x"0000_0014", debugData, true);
+
+        -- Enable veto effect on trigger outputs
+        axiLiteBusSimWrite (axilClk, axilWriteMaster, axilWriteSlave, x"0000_001C", x"0000_0001", true);
+        axiLiteBusSimRead (axilClk, axilReadMaster, axilReadSlave, x"0000_001C", debugData, true);
+
+        -- Enable both channels
         axiLiteBusSimWrite (axilClk, axilWriteMaster, axilWriteSlave, x"0000_0004", x"0000_0003", true);
-        -- Readback for confirmation
         axiLiteBusSimRead (axilClk, axilReadMaster, axilReadSlave, x"0000_0004", debugData, true);
 
+        -- Enable threshold trigger in output logic
+        axiLiteBusSimWrite (axilClk, axilWriteMaster, axilWriteSlave, x"0000_0000", x"0000_0007", true);
+        axiLiteBusSimRead (axilClk, axilReadMaster, axilReadSlave, x"0000_0000", debugData, true);
+
         axilSetupDone <= '1';
+
+        wait for 500 ns;
+        -- Force trigger from threshold trigger on first channel to check if vetoed
+        axiLiteBusSimWrite (axilClk, axilWriteMaster, axilWriteSlave, x"0001_0008", x"0000_0010", true);
+
+        wait for 100 ns;
+        -- Force trigger from threshold trigger on first channel to check if no longer vetoed
+        axiLiteBusSimWrite (axilClk, axilWriteMaster, axilWriteSlave, x"0001_0008", x"0000_0010", true);
+
     end process axil;
 
 
@@ -134,6 +161,7 @@ begin
 
         -- Reset the strobes
         v.revSig := '0';
+        v.injSig := '0';
 
         -- Increment the counter
         v.cnt := r.cnt + 1;
@@ -144,6 +172,11 @@ begin
         -- Generate a revolution signal pulse every 64 counts
         if r.cnt(5 downto 0) = 0 then
             v.revSig := '1';
+        end if;
+
+        -- Generate a injection signal pulse every 256 counts
+        if r.cnt(7 downto 0) = 0 then
+            v.injSig := '1';
         end if;
 
         -- Synchronous Reset
