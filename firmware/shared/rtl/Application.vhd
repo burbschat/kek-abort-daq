@@ -118,19 +118,44 @@ begin
             axilWriteMaster => axilWriteMasters(AXIL_TEST_INDEX_C),
             axilWriteSlave  => axilWriteSlaves(AXIL_TEST_INDEX_C));
 
-    ---------------
-    -- LED blinking
-    ---------------
+    -------
+    -- LEDs
+    -------
 
+    -- Blinking LED
     process(axilClk)
     begin
         if rising_edge(axilClk) then
             count <= count + 1;
 
             -- At 125MHz the 26th bit should give visible LED blinking
-            leds <= count(29 downto 29 - 7);
+            -- Go some higher to get a not too fast blinking action.
+            leds(0) <= count(29 - 7 + 4);
         end if;
     end process;
+
+    -- ADC channel clipped LEDs
+    -- This working (or not) may depend on how the ADCs output format is set
+    -- (signed vs unsigned). For now it should be unsigned.
+    process(adcClk, adcDat)
+    begin
+        if rising_edge(adcClk) then
+            for i in 0 to 1 loop
+                if (adcDat(i) = x"0000" or adcDat(i) = x"1111") then
+                    leds(1 + i) <= '1';
+                else
+                    leds(1 + i) <= '0';
+                end if;
+            end loop;
+        end if;
+    end process;
+
+    -- Physical input signals
+    leds(3) <= revSigIn;
+    leds(4) <= injSig;
+    leds(5) <= extTrig;
+
+    -- Whatever other useful information we might want to display...
 
     ------------------------
     -- ADC Data Ring Buffers
