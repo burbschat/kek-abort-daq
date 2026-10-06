@@ -16,6 +16,7 @@ use axi_soc_7000_core.AxiSoc7000Pkg.all;
 entity TotTrig is
     generic (
         TPD_G           : time                   := 1 ns;
+        COMMON_CLK_G    : boolean                := false;
         DATA_WIDTH_G    : positive range 1 to 32 := 32;
         SAFE_HYST_EN_G  : boolean                := true;  -- Set bounds check for hyst computations
         NUM_ADDR_BITS_G : positive);  -- Number of AXI-Lite address bits in the Subordinate
@@ -94,7 +95,7 @@ begin
     U_AxiLiteAsync : entity surf.AxiLiteAsync
         generic map (
             TPD_G           => TPD_G,
-            COMMON_CLK_G    => false,
+            COMMON_CLK_G    => COMMON_CLK_G,
             NUM_ADDR_BITS_G => NUM_ADDR_BITS_G)
         port map (
             -- Slave Interface (axiClk domain)

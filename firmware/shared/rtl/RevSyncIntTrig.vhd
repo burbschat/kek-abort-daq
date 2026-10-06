@@ -19,6 +19,7 @@ use axi_soc_7000_core.AxiSoc7000Pkg.all;
 entity RevSyncIntTrig is
     generic (
         TPD_G           : time                  := 1 ns;
+        COMMON_CLK_G    : boolean               := false;
         NUM_WNDS_G      : positive range 1 to 8 := 2;  -- Hard limit on number of preset values
         NUM_ADDR_BITS_G : positive);  -- Number of AXI-Lite address bits in the Subordinate
     port (
@@ -129,7 +130,7 @@ begin
     U_AxiLiteAsync : entity surf.AxiLiteAsync
         generic map (
             TPD_G           => TPD_G,
-            COMMON_CLK_G    => false,
+            COMMON_CLK_G    => COMMON_CLK_G,
             NUM_ADDR_BITS_G => NUM_ADDR_BITS_G)
         port map (
             -- Slave Interface (axiClk domain)

@@ -47,6 +47,9 @@ end Application;
 
 architecture mapping of Application is
 
+    constant BASE_BOT_C      : positive := 28;
+    constant NUM_ADDR_BITS_C : positive := 24;
+
     constant NUM_ADC_CH_C       : natural                            := 2;
     constant ADC_TDEST_ROUTES_C : Slv8Array(NUM_ADC_CH_C-1 downto 0) := (0 => x"00", 1 => x"01");
 
@@ -56,7 +59,8 @@ architecture mapping of Application is
     constant AXIL_REVSIG_CTRL_INDEX_C : natural := AXIL_RING_INDEX_BASE_C + NUM_ADC_CH_C;  -- 3
     constant AXIL_TRIGS_INDEX_C       : natural := AXIL_REVSIG_CTRL_INDEX_C + 1;  -- 4
 
-    constant AXIL_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXIL_MASTERS_C-1 downto 0) := genAxiLiteConfig(NUM_AXIL_MASTERS_C, AXIL_BASE_ADDR_G, 28, 24);
+    constant AXIL_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXIL_MASTERS_C-1 downto 0) :=
+        genAxiLiteConfig(NUM_AXIL_MASTERS_C, AXIL_BASE_ADDR_G, BASE_BOT_C, NUM_ADDR_BITS_C);
 
     signal axilReadMasters  : AxiLiteReadMasterArray(NUM_AXIL_MASTERS_C-1 downto 0);
     signal axilReadSlaves   : AxiLiteReadSlaveArray(NUM_AXIL_MASTERS_C-1 downto 0)  := (others => AXI_LITE_READ_SLAVE_EMPTY_DECERR_C);
@@ -217,7 +221,9 @@ begin
     U_AbortTrigs : entity work.AbortTrigs
         generic map(
             TPD_G            => TPD_G,
-            AXIL_BASE_ADDR_G => AXIL_CONFIG_C(AXIL_TRIGS_INDEX_C).baseAddr)
+            COMMON_CLK_G     => false,
+            AXIL_BASE_ADDR_G => AXIL_CONFIG_C(AXIL_TRIGS_INDEX_C).baseAddr,
+            NUM_ADDR_BITS_G  => NUM_ADDR_BITS_C)
         port map(
             -- ADC data lines
             adcClk          => adcClk,

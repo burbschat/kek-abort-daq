@@ -17,8 +17,10 @@ use axi_soc_7000_core.AxiSoc7000Pkg.all;
 
 entity AbortTrigs is
     generic (
-        TPD_G            : time := 1 ns;
-        AXIL_BASE_ADDR_G : slv(31 downto 0));
+        TPD_G            : time    := 1 ns;
+        COMMON_CLK_G     : boolean := false;
+        AXIL_BASE_ADDR_G : slv(31 downto 0);
+        NUM_ADDR_BITS_G  : positive);  -- Number of AXI-Lite address bits in the Subordinate
     port (
         -- ADC data lines
         adcClk          : in  sl;
@@ -60,11 +62,11 @@ architecture mapping of AbortTrigs is
     constant AXIL_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXIL_MASTERS_C-1 downto 0)
         := genAxiLiteConfig(NUM_AXIL_MASTERS_C, AXIL_BASE_ADDR_G, BASE_BOT_C, NUM_ADDR_BITS_C);
 
-    signal axilReadMasters : AxiLiteReadMasterArray(NUM_AXIL_MASTERS_C-1 downto 0);
-    signal axilReadSlaves  : AxiLiteReadSlaveArray(NUM_AXIL_MASTERS_C-1 downto 0)
+    signal axilAdcReadMasters : AxiLiteReadMasterArray(NUM_AXIL_MASTERS_C-1 downto 0);
+    signal axilAdcReadSlaves  : AxiLiteReadSlaveArray(NUM_AXIL_MASTERS_C-1 downto 0)
         := (others => AXI_LITE_READ_SLAVE_EMPTY_DECERR_C);
-    signal axilWriteMasters : AxiLiteWriteMasterArray(NUM_AXIL_MASTERS_C-1 downto 0);
-    signal axilWriteSlaves  : AxiLiteWriteSlaveArray(NUM_AXIL_MASTERS_C-1 downto 0)
+    signal axilAdcWriteMasters : AxiLiteWriteMasterArray(NUM_AXIL_MASTERS_C-1 downto 0);
+    signal axilAdcWriteSlaves  : AxiLiteWriteSlaveArray(NUM_AXIL_MASTERS_C-1 downto 0)
         := (others => AXI_LITE_WRITE_SLAVE_EMPTY_DECERR_C);
 
     type RegType is record
@@ -83,17 +85,48 @@ architecture mapping of AbortTrigs is
     signal r   : RegType := REG_INIT_C;
     signal rin : RegType;
 
+    -- AXI-Lite but synchronized to the adc clock domain
+    signal axilAdcReadMaster  : AxiLiteReadMasterType;
+    signal axilAdcReadSlave   : AxiLiteReadSlaveType  := AXI_LITE_READ_SLAVE_EMPTY_DECERR_C;
+    signal axilAdcWriteMaster : AxiLiteWriteMasterType;
+    signal axilAdcWriteSlave  : AxiLiteWriteSlaveType := AXI_LITE_WRITE_SLAVE_EMPTY_DECERR_C;
+
     signal revSigSyncOneshot : sl;
 
     signal thrTrigs     : slv(NUM_CH_C-1 downto 0);
     signal totTrigs     : slv(NUM_CH_C-1 downto 0);
     signal revSyncTrigs : slv(NUM_CH_C-1 downto 0);
 
-    signal chMaskSync      : slv(NUM_CH_C-1 downto 0);
-    signal enMaskSync      : slv(NUM_TRIG_TYPES_C-1 downto 0);
-    signal syncIn, syncOut : slv(NUM_CH_C+NUM_TRIG_TYPES_C-1 downto 0);
-
 begin
+
+
+    -----------------
+    -- AXI-Lite Async
+    -----------------
+    -- Easiest to synchronize the whole AXI interface to the adcClk domain and to
+    -- all the register definitions there. As we use the async here, the optional
+    -- async modules in the individual trigger modules should be disabled by
+    -- setting COMMON_CLK_G=true for them and running on the adc clock.
+    U_AxiLiteAsync : entity surf.AxiLiteAsync
+        generic map (
+            TPD_G           => TPD_G,
+            COMMON_CLK_G    => COMMON_CLK_G,
+            NUM_ADDR_BITS_G => NUM_ADDR_BITS_G)
+        port map (
+            -- Slave Interface (axiClk domain)
+            sAxiClk         => axilClk,
+            sAxiClkRst      => axilRst,
+            sAxiReadMaster  => axilReadMaster,
+            sAxiReadSlave   => axilReadSlave,
+            sAxiWriteMaster => axilWriteMaster,
+            sAxiWriteSlave  => axilWriteSlave,
+            -- Master Interface (dspClk domain)
+            mAxiClk         => adcClk,
+            mAxiClkRst      => adcRst,
+            mAxiReadMaster  => axilAdcReadMaster,
+            mAxiReadSlave   => axilAdcReadSlave,
+            mAxiWriteMaster => axilAdcWriteMaster,
+            mAxiWriteSlave  => axilAdcWriteSlave);
 
     --------------------
     -- AXI-Lite Crossbar
@@ -106,16 +139,16 @@ begin
             NUM_MASTER_SLOTS_G => NUM_AXIL_MASTERS_C,
             MASTERS_CONFIG_G   => AXIL_CONFIG_C)
         port map (
-            axiClk              => axilClk,
-            axiClkRst           => axilRst,
-            sAxiWriteMasters(0) => axilWriteMaster,
-            sAxiWriteSlaves(0)  => axilWriteSlave,
-            sAxiReadMasters(0)  => axilReadMaster,
-            sAxiReadSlaves(0)   => axilReadSlave,
-            mAxiWriteMasters    => axilWriteMasters,
-            mAxiWriteSlaves     => axilWriteSlaves,
-            mAxiReadMasters     => axilReadMasters,
-            mAxiReadSlaves      => axilReadSlaves);
+            axiClk              => adcClk,
+            axiClkRst           => adcRst,
+            sAxiWriteMasters(0) => axilAdcWriteMaster,
+            sAxiWriteSlaves(0)  => axilAdcWriteSlave,
+            sAxiReadMasters(0)  => axilAdcReadMaster,
+            sAxiReadSlaves(0)   => axilAdcReadSlave,
+            mAxiWriteMasters    => axilAdcWriteMasters,
+            mAxiWriteSlaves     => axilAdcWriteSlaves,
+            mAxiReadMasters     => axilAdcReadMasters,
+            mAxiReadSlaves      => axilAdcReadSlaves);
 
     --------------------------------------------
     -- Synchronize revSig to adc clock (oneshot)
@@ -141,44 +174,49 @@ begin
         U_ThrTrig : entity work.ThrTrig
             generic map(
                 TPD_G           => TPD_G,
+                COMMON_CLK_G    => true,  -- Async already in this module
                 DATA_WIDTH_G    => DATA_WIDTH_C,
                 SAFE_HYST_EN_G  => true,
-                NUM_ADDR_BITS_G => 16)
+                NUM_ADDR_BITS_G => NUM_ADDR_BITS_C)
             port map(
                 adcClk          => adcClk,
                 adcRst          => adcRst,
                 adcDat          => adcDat(i),
                 trigOut         => thrTrigs(i),
-                axilClk         => axilClk,
-                axilRst         => axilRst,
-                axilWriteMaster => axilWriteMasters(AXIL_THR_TRIG_INDEX_BASE+i),
-                axilWriteSlave  => axilWriteSlaves(AXIL_THR_TRIG_INDEX_BASE+i),
-                axilReadMaster  => axilReadMasters(AXIL_THR_TRIG_INDEX_BASE+i),
-                axilReadSlave   => axilReadSlaves(AXIL_THR_TRIG_INDEX_BASE+i));
+                -- AXI-Lite Interface (here already on adcClk domain)
+                axilClk         => adcClk,
+                axilRst         => adcRst,
+                axilWriteMaster => axilAdcWriteMasters(AXIL_THR_TRIG_INDEX_BASE+i),
+                axilWriteSlave  => axilAdcWriteSlaves(AXIL_THR_TRIG_INDEX_BASE+i),
+                axilReadMaster  => axilAdcReadMasters(AXIL_THR_TRIG_INDEX_BASE+i),
+                axilReadSlave   => axilAdcReadSlaves(AXIL_THR_TRIG_INDEX_BASE+i));
 
         -- Time-Over-Threshold Trigger
         U_TotTrig : entity work.TotTrig
             generic map(
                 TPD_G           => TPD_G,
+                COMMON_CLK_G    => true,  -- Async already in this module
                 DATA_WIDTH_G    => DATA_WIDTH_C,
                 SAFE_HYST_EN_G  => true,
-                NUM_ADDR_BITS_G => 16)
+                NUM_ADDR_BITS_G => NUM_ADDR_BITS_C)
             port map(
                 adcClk          => adcClk,
                 adcRst          => adcRst,
                 adcDat          => adcDat(i),
                 trigOut         => totTrigs(i),
-                axilClk         => axilClk,
-                axilRst         => axilRst,
-                axilWriteMaster => axilWriteMasters(AXIL_TOT_TRIG_INDEX_BASE+i),
-                axilWriteSlave  => axilWriteSlaves(AXIL_TOT_TRIG_INDEX_BASE+i),
-                axilReadMaster  => axilReadMasters(AXIL_TOT_TRIG_INDEX_BASE+i),
-                axilReadSlave   => axilReadSlaves(AXIL_TOT_TRIG_INDEX_BASE+i));
+                -- AXI-Lite Interface (here already on adcClk domain)
+                axilClk         => adcClk,
+                axilRst         => adcRst,
+                axilWriteMaster => axilAdcWriteMasters(AXIL_TOT_TRIG_INDEX_BASE+i),
+                axilWriteSlave  => axilAdcWriteSlaves(AXIL_TOT_TRIG_INDEX_BASE+i),
+                axilReadMaster  => axilAdcReadMasters(AXIL_TOT_TRIG_INDEX_BASE+i),
+                axilReadSlave   => axilAdcReadSlaves(AXIL_TOT_TRIG_INDEX_BASE+i));
 
         -- Revsig synchronized integral trigger
         U_RevSyncIntTrig : entity work.RevSyncIntTrig
             generic map(
                 TPD_G           => TPD_G,
+                COMMON_CLK_G    => true,  -- Async already in this module
                 NUM_WNDS_G      => 2,
                 NUM_ADDR_BITS_G => NUM_ADDR_BITS_C)
             port map(
@@ -190,35 +228,16 @@ begin
                 -- Trigger outputs
                 trigOut         => revSyncTrigs(i),
                 thrCrsOut       => open,  -- Not required for now
-                -- AXI-Lite Interface (axilClk domain)
-                axilClk         => axilClk,
-                axilRst         => axilRst,
-                axilWriteMaster => axilWriteMasters(AXIL_REVSYNC_TRIG_INDEX_BASE+i),
-                axilWriteSlave  => axilWriteSlaves(AXIL_REVSYNC_TRIG_INDEX_BASE+i),
-                axilReadMaster  => axilReadMasters(AXIL_REVSYNC_TRIG_INDEX_BASE+i),
-                axilReadSlave   => axilReadSlaves(AXIL_REVSYNC_TRIG_INDEX_BASE+i)
+                -- AXI-Lite Interface (here already on adcClk domain)
+                axilClk         => adcClk,
+                axilRst         => adcRst,
+                axilWriteMaster => axilAdcWriteMasters(AXIL_REVSYNC_TRIG_INDEX_BASE+i),
+                axilWriteSlave  => axilAdcWriteSlaves(AXIL_REVSYNC_TRIG_INDEX_BASE+i),
+                axilReadMaster  => axilAdcReadMasters(AXIL_REVSYNC_TRIG_INDEX_BASE+i),
+                axilReadSlave   => axilAdcReadSlaves(AXIL_REVSYNC_TRIG_INDEX_BASE+i)
                 );
 
     end generate gen_trigs;
-
-    --------------------------------------------------
-    -- Synchronize registers used on the adcClk domain
-    --------------------------------------------------
-
-    U_SyncVecMasks : entity surf.SynchronizerVector
-        generic map (
-            TPD_G   => TPD_G,
-            WIDTH_G => NUM_CH_C+NUM_TRIG_TYPES_C)
-        port map (
-            clk     => adcClk,
-            dataIn  => syncIn,
-            dataOut => syncOut);
-
-    syncIn(NUM_CH_C-1 downto 0)                         <= r.chMask;
-    syncIn(NUM_CH_C+NUM_TRIG_TYPES_C-1 downto NUM_CH_C) <= r.enMask;
-    chMaskSync                                          <= syncOut(NUM_CH_C-1 downto 0);
-    enMaskSync                                          <= syncOut(NUM_CH_C+NUM_TRIG_TYPES_C-1 downto NUM_CH_C);
-
 
     -----------------------
     -- Trigger output logic
@@ -230,19 +249,20 @@ begin
     -- Enable mask idx 1: Time-over-threshold trigger
     -- Enable mask idx 2: Revolution signal synchronized integral trigger
     abortTrig <= (
-        (uOr(thrTrigs and chMaskSync) and enMaskSync(0))
+        (uOr(thrTrigs and r.chMask) and r.enMask(0))
         or
-        (uOr(totTrigs and chMaskSync) and enMaskSync(1))
+        (uOr(totTrigs and r.chMask) and r.enMask(1))
         or
-        (uOr(revSyncTrigs and chMaskSync) and enMaskSync(2))
+        (uOr(revSyncTrigs and r.chMask) and r.enMask(2))
         );
-
 
     --------------------------
     -- Configuration registers
     --------------------------
 
-    comb : process (axilReadMasters(AXIL_REG_INDEX), axilWriteMasters(AXIL_REG_INDEX), r, axilRst) is
+    comb : process (axilAdcReadMasters(AXIL_REG_INDEX),
+                    axilAdcWriteMasters(AXIL_REG_INDEX),
+                    r, adcRst) is
         variable v      : RegType;
         variable axilEp : AxiLiteEndPointType;
     begin
@@ -255,7 +275,9 @@ begin
         --------------------------
 
         -- Determine the transaction type
-        axiSlaveWaitTxn(axilEp, axilWriteMasters(AXIL_REG_INDEX), axilReadMasters(AXIL_REG_INDEX),
+        axiSlaveWaitTxn(axilEp,
+                        axilAdcWriteMasters(AXIL_REG_INDEX),
+                        axilAdcReadMasters(AXIL_REG_INDEX),
                         v.axilWriteSlave, v.axilReadSlave);
 
         -------------------------
@@ -271,11 +293,11 @@ begin
         ----------------------------------------------------------------------
 
         -- Outputs
-        axilWriteSlaves(AXIL_REG_INDEX) <= r.axilWriteSlave;
-        axilReadSlaves(AXIL_REG_INDEX)  <= r.axilReadSlave;
+        axilAdcWriteSlaves(AXIL_REG_INDEX) <= r.axilWriteSlave;
+        axilAdcReadSlaves(AXIL_REG_INDEX)  <= r.axilReadSlave;
 
         -- Synchronous Reset
-        if axilRst = '1' then
+        if adcRst = '1' then
             v := REG_INIT_C;
         end if;
 
@@ -284,9 +306,9 @@ begin
 
     end process comb;
 
-    seq : process (axilClk) is
+    seq : process (adcClk) is
     begin
-        if rising_edge(axilClk) then
+        if rising_edge(adcClk) then
             r <= rin after TPD_G;
         end if;
     end process seq;
