@@ -19,7 +19,8 @@ use axi_soc_7000_core.AxiSoc7000Pkg.all;
 
 entity Application is
     generic (
-        TPD_G            : time := 1 ns;
+        TPD_G            : time   := 1 ns;
+        SYNTH_MODE_G     : string := "inferred";
         AXIL_BASE_ADDR_G : slv(31 downto 0));
     port (
         leds            : out slv(7 downto 0);
@@ -139,7 +140,7 @@ begin
         U_AxiStreamRingBuffer : entity surf.AxiStreamRingBuffer
             generic map (
                 TPD_G               => TPD_G,
-                SYNTH_MODE_G        => "xpm",
+                SYNTH_MODE_G        => SYNTH_MODE_G,
                 MEMORY_TYPE_G       => "block",
                 COMMON_CLK_G        => false,  -- In this design in general axisClk is not same as axilClk (see top module)
                 DATA_BYTES_G        => 2,  -- 16 bit (2 byte) per clock from ADC
@@ -223,7 +224,13 @@ begin
             TPD_G            => TPD_G,
             COMMON_CLK_G     => false,
             AXIL_BASE_ADDR_G => AXIL_CONFIG_C(AXIL_TRIGS_INDEX_C).baseAddr,
-            NUM_ADDR_BITS_G  => NUM_ADDR_BITS_C)
+            -- Must use all 32 address bits here as there is crossbar stuff
+            -- downstream of the async which seems to require all actually used
+            -- address bits to make sense as especially the config types
+            -- specifically reference the (full 32 bit) base address.
+            -- I guess synthesis takes care of virtually constant signals
+            -- anyways so we don't really care if we use 32 or 24 address bits?
+            NUM_ADDR_BITS_G  => 32)
         port map(
             -- ADC data lines
             adcClk          => adcClk,

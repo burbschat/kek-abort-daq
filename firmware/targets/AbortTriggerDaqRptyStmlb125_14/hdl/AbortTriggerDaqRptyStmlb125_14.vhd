@@ -178,6 +178,7 @@ begin
     U_App : entity work.Application
         generic map (
             TPD_G            => TPD_G,
+            SYNTH_MODE_G     => "xpm",
             -- If there was another crossbar at the top module we may reference
             -- the baseAddr from there but for now there is non, so must set the
             -- (full 32 bits) of base addres here manually.
