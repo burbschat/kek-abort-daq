@@ -192,7 +192,7 @@ begin
 
         -- Update or check delay counter if running
         if r.revSigDlyCntRun = '1' then
-            if r.revSigDlyCnt = r.revSigDly - REV_SIG_DLY_CYLCOMP_C then
+            if r.revSigDlyCnt >= r.revSigDly - REV_SIG_DLY_CYLCOMP_C then
                 v.revSigDlyCntRun := '0';              -- Stop counter
                 v.wndAlgn         := '1';              -- Strobe window align
             else
@@ -221,7 +221,7 @@ begin
         -- The user may also poll wndIdx a few times and see if it ever reaches the
         -- intended maximal value (TODO: Could add sticky max val register).
         -- TODO: Check if there are a few cycle differences due to registered signals...
-        if r.wndCnt = r.wndLngts(conv_integer(v.wndIdx)) - WND_LNG_CYLCOMP_C then  -- Deadline reached
+        if r.wndCnt >= r.wndLngts(conv_integer(v.wndIdx)) - WND_LNG_CYLCOMP_C then  -- Deadline reached
             -- Check the integral value and strobe trigger if threshold exceeded.
             -- Force trigger works independent of state.
             if (trigConditionMet and (r.state = ARMD_S)) or (r.forceTrig = '1') then
