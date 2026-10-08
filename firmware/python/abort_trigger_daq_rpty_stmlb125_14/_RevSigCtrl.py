@@ -32,7 +32,7 @@ class RevSigCtrl(pr.Device):
             dependencies = [self.revCounterPresetVal],
             mode         = 'RW',
             linkedGet    = lambda: self.revCounterPresetVal.value() + 1,
-            linkedSet    = lambda val, wr: self.revCounterPresetVal.set(val-1),
+            linkedSet    = lambda value, write: self.revCounterPresetVal.set(value-1),
             # 5120 buckets / 508.89 MHz RF clock gives ~ 10 us per turn.
             # Trigger every 100000 turns gives around 1.00611134 Hz trigger.
             default      = 100000,
@@ -44,7 +44,7 @@ class RevSigCtrl(pr.Device):
             dependencies = [self.clockCounterPresetVal],
             mode         = 'RW',
             linkedGet    = lambda: self.clockCounterPresetVal.value() + 1,
-            linkedSet    = lambda val, wr: self.clockCounterPresetVal.set(val-1),
+            linkedSet    = lambda value, write: self.clockCounterPresetVal.set(value-1),
         ))
 
         self.add(pr.LinkVariable(
@@ -55,7 +55,7 @@ class RevSigCtrl(pr.Device):
             units        = 'us',
             disp         = '{:0.5g}',
             linkedGet    = lambda: self.cyclesPerRev.value() / clkFreq,
-            linkedSet    = lambda val, wr: self.cyclesPerRev.set(round(val * clkFreq)),
+            linkedSet    = lambda value, write: self.cyclesPerRev.set(round(value * clkFreq)),
             default      = revPeriodDefault,
         ))
 
