@@ -50,7 +50,7 @@ class RevSigCtrl(pr.Device):
         self.add(pr.LinkVariable(
             name         = 'revPeriod',
             description  = 'Clock cycles per beam revolution used for dummy revolution signal generation',
-            dependencies = [self.clockCounterPresetVal],
+            dependencies = [self.cyclesPerRev],
             mode         = 'RW',
             units        = 'us',
             disp         = '{:0.5g}',
