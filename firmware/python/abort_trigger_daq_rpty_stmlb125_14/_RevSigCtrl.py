@@ -4,6 +4,8 @@ class RevSigCtrl(pr.Device):
     def __init__(self, clkFreq, **kwargs):
         super().__init__(**kwargs)
 
+        clkFreqMhz = clkFreq * 1e-6
+
         # 5120 RF buckets at 508.89 MHz RF clock frequency
         revPeriodDefault = 1 / 508.89e6 * 5120
 
@@ -54,8 +56,8 @@ class RevSigCtrl(pr.Device):
             mode         = 'RW',
             units        = 'us',
             disp         = '{:0.5g}',
-            linkedGet    = lambda: self.cyclesPerRev.value() / clkFreq,
-            linkedSet    = lambda value, write: self.cyclesPerRev.set(round(value * clkFreq)),
+            linkedGet    = lambda: self.cyclesPerRev.value() / clkFreqMhz,
+            linkedSet    = lambda value, write: self.cyclesPerRev.set(round(value * clkFreqMhz)),
             default      = revPeriodDefault,
         ))
 
