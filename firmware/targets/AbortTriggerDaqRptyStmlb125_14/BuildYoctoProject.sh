@@ -9,7 +9,7 @@ hwType=RedPitayaStemlab125-14
 numLane=1
 
 # Define number of DEST per DMA lane
-numDest=1
+numDest=2
 
 # Define number of DMA TX/RX Buffers
 # TODO: Resolve errors like (apparently from rogue so a upstream problem?)
