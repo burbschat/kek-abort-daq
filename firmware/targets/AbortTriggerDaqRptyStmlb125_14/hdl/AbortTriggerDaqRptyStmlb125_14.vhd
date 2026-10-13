@@ -91,6 +91,9 @@ architecture top_level of AbortTriggerDaqRptyStmlb125_14 is
     signal dmaClk     : sl;  -- Used by DMA, also in application, output from core module
     signal dmaRst     : sl;
 
+    -- Signals for signed (two's complement) ADC data
+    signal adcDatFlipped : Slv16Array(1 downto 0);
+
 begin
     -------------------
     -- Clock Assignment
@@ -110,6 +113,22 @@ begin
             I  => adcClkP,
             IB => adcClkN,
             O  => adcClk);
+
+    ----------------------
+    -- ADC Data Conversion
+    ----------------------
+    -- The signal appears to be inverted (signal line flip due to routing?) so
+    -- also flip the sign here to make it un-inverted.
+    -- Keep it unsigned value (half range is 0V) as the trigger implementations
+    -- sort of assume this. In principle one could convert them all to signed.
+    -- Concurrent assignment did not work wiht IOB on the IO ports.
+    process(adcClk)
+    begin
+        if rising_edge(adcClk) then
+            adcDatFlipped(0) <= not adc_dat_a_i;
+            adcDatFlipped(1) <= not adc_dat_b_i;
+        end if;
+    end process;
 
     -----------------------
     -- Common Platform Core
@@ -202,8 +221,7 @@ begin
             -- only is the data stream, thus directly pipe it into the
             -- Application)
             adcClk          => adcClk,
-            adcDat(0)       => adc_dat_a_i,
-            adcDat(1)       => adc_dat_b_i,
+            adcDat          => adcDatFlipped,
             -- Application specific ports
             abortReq        => abortReq,
             revSigIn        => revSig,
