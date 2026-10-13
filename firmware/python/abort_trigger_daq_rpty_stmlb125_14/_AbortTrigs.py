@@ -102,6 +102,18 @@ class AbortTrigs(pr.Device):
 
         self.add(
             pr.RemoteVariable(
+                name="TrigDlyCntRun",
+                description="Trigger delay counter running flag readback",
+                offset=0x8,
+                bitOffset=3,
+                bitSize=1,
+                mode="RO",
+                hidden=False,
+            )
+        )
+
+        self.add(
+            pr.RemoteVariable(
                 name="InjSigDly",
                 description="Injection signal delay (in clock cycles)",
                 minimum=2,
@@ -180,6 +192,42 @@ class AbortTrigs(pr.Device):
                 bitOffset=0,
                 bitSize=1,
                 mode="RW",
+                hidden=False,
+            )
+        )
+
+        self.add(
+            pr.RemoteVariable(
+                name="TrigDly",
+                description="Delay for delayed version of trigger output (in clock cycles)",
+                minimum=2,
+                offset=0x20,
+                bitSize=32,
+                mode="RW",
+                hidden=False,
+            )
+        )
+
+        self.add(
+            pr.LinkVariable(
+                name="TrigDlyUs",
+                description="Delay for delayed version of trigger output (in us)",
+                mode="RW",
+                units="us",
+                disp="{:0.5g}",
+                dependencies=[self.TrigDly],
+                linkedGet=lambda: (float(self.TrigDly.value()) * (1.0 / clkFreqMhz)),
+                linkedSet=lambda value, write: self.TrigDly.set(int(value / (1.0 / clkFreqMhz))),
+            )
+        )
+
+        self.add(
+            pr.RemoteVariable(
+                name="TrigDlyCnt",
+                description="Count for delayed version of trigger output",
+                offset=0x24,
+                bitSize=32,
+                mode="RO",
                 hidden=False,
             )
         )

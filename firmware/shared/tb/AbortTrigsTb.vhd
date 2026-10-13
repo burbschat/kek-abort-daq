@@ -139,6 +139,10 @@ begin
         axiLiteBusSimWrite (axilClk, axilWriteMaster, axilWriteSlave, x"0000_0000", x"0000_0007", true);
         axiLiteBusSimRead (axilClk, axilReadMaster, axilReadSlave, x"0000_0000", debugData, true);
 
+        -- Set delay for delayed trigger output
+        axiLiteBusSimWrite (axilClk, axilWriteMaster, axilWriteSlave, x"0000_0020", x"0000_004", true);
+        axiLiteBusSimRead (axilClk, axilReadMaster, axilReadSlave, x"0000_0020", debugData, true);
+
         axilSetupDone <= '1';
 
         wait for 500 ns;
