@@ -20,3 +20,6 @@ class Application(pr.Device):
         offset += offset_increment
 
         self.add(rpty.AbortTrigs(name="AbortTrigs", offset=offset, clkFreq=clkFreq))
+        offset += offset_increment
+
+        self.add(axi.AxiStreamFrameRateLimiter(name="FrameRateLimiter", offset=offset))

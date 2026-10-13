@@ -54,11 +54,12 @@ architecture mapping of Application is
     constant NUM_ADC_CH_C       : natural                            := 2;
     constant ADC_TDEST_ROUTES_C : Slv8Array(NUM_ADC_CH_C-1 downto 0) := (0 => x"00", 1 => x"01");
 
-    constant NUM_AXIL_MASTERS_C       : natural := 5;
+    constant NUM_AXIL_MASTERS_C       : natural := 6;
     constant AXIL_TEST_INDEX_C        : natural := 0;
     constant AXIL_RING_INDEX_BASE_C   : natural := 1;  -- Must accomodate NUM_ADC_CH_C channels
     constant AXIL_REVSIG_CTRL_INDEX_C : natural := AXIL_RING_INDEX_BASE_C + NUM_ADC_CH_C;  -- 3
     constant AXIL_TRIGS_INDEX_C       : natural := AXIL_REVSIG_CTRL_INDEX_C + 1;  -- 4
+    constant RATE_LIMIT_INDEX_C       : natural := AXIL_TRIGS_INDEX_C + 1;  -- 5
 
     constant AXIL_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXIL_MASTERS_C-1 downto 0) :=
         genAxiLiteConfig(NUM_AXIL_MASTERS_C, AXIL_BASE_ADDR_G, BASE_BOT_C, NUM_ADDR_BITS_C);
@@ -71,6 +72,10 @@ architecture mapping of Application is
     -- Axi stream for ring buffers
     signal axisMasters : AxiStreamMasterArray(NUM_ADC_CH_C-1 downto 0) := (others => AXI_STREAM_MASTER_INIT_C);
     signal axisSlaves  : AxiStreamSlaveArray(NUM_ADC_CH_C-1 downto 0)  := (others => AXI_STREAM_SLAVE_FORCE_C);
+
+    -- Axi stream after mux (before frame rate limiter)
+    signal axisMaster : AxiStreamMasterType := AXI_STREAM_MASTER_INIT_C;
+    signal axisSlave  : AxiStreamSlaveType  := AXI_STREAM_SLAVE_FORCE_C;
 
     signal count : slv(31 downto 0) := (others => '0');
 
@@ -215,8 +220,31 @@ begin
             sAxisMasters => axisMasters,
             sAxisSlaves  => axisSlaves,
             -- Master
-            mAxisMaster  => dmaIbMaster,
-            mAxisSlave   => dmaIbSlave);
+            mAxisMaster  => axisMaster,
+            mAxisSlave   => axisSlave);
+
+    -- Frame rate limiter to avoid too high number of readout events especially
+    -- when playing with the trigger settings (in auto re-arm mode).
+    U_RateLimiter : entity surf.AxiStreamFrameRateLimiter
+        generic map (
+            TPD_G              => TPD_G,
+            AXIS_CLK_FREQ_G    => DMA_CLK_FREQ_C,
+            DEFAULT_MAX_RATE_G => 2)    -- 2 Hz (shared between all channels)
+        port map (
+            -- AXI Stream Interface (axisClk domain)
+            axisClk         => axisClk,
+            axisRst         => axisRst,
+            sAxisMaster     => axisMaster,
+            sAxisSlave      => axisSlave,
+            mAxisMaster     => dmaIbMaster,
+            mAxisSlave      => dmaIbSlave,
+            -- AXI-Lite Interface (axilClk domain)
+            axilClk         => axilClk,
+            axilRst         => axilRst,
+            axilReadMaster  => axilReadMasters(RATE_LIMIT_INDEX_C),
+            axilReadSlave   => axilReadSlaves(RATE_LIMIT_INDEX_C),
+            axilWriteMaster => axilWriteMasters(RATE_LIMIT_INDEX_C),
+            axilWriteSlave  => axilWriteSlaves(RATE_LIMIT_INDEX_C));
 
     ----------------------
     -- Abort Trigger Logic
