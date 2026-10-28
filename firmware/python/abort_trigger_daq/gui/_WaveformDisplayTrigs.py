@@ -203,30 +203,30 @@ class PyDMWaveformPlotThrTrig(PyDMWaveformPlotTrig):
 
 
 class WaveformDisplayTrigs(PyDMFrame):
-    def __init__(self, numCh=2, *args, **kwargs):
+    def __init__(self, channel_idx=0, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.numCh = numCh
-        self.color = ["white", "red", "dodgerblue", "forestgreen"]
-        self.wav_path = [f"{self.channel}.AdcProcessor[{i}]" for i in range(self.numCh)]
-        self.trig_path = [f"{self.channel}.Zynq7SoC.Application.AbortTrigs.ThrTrig[{i}]" for i in range(self.numCh)]
+        i = channel_idx
+
+        self.color = "white"
+        self.wav_path = f"{self.channel}.AdcProcessor[{i}]"
+        self.trig_path = f"{self.channel}.Zynq7SoC.Application.AbortTrigs.ThrTrig[{i}]"
 
         vb = QVBoxLayout()
         self.setLayout(vb)
 
         self.timePlot = PyDMWaveformPlotThrTrig(
-            thr_channel_addr=f"{self.trig_path[0]}.Threshold",
-            hyst_channel_addr=f"{self.trig_path[0]}.Hysteresis",
+            thr_channel_addr=f"{self.trig_path}.Threshold",
+            hyst_channel_addr=f"{self.trig_path}.Hysteresis",
             trig_delay_channel_addr=f"{self.channel}.Zynq7SoC.Application.AbortTrigs.TrigDly",
         )
         self.timePlot.setLabel("bottom", text="Time (ns)")
-        # for i in range(self.numCh):
-        i = 0
+
         self.timePlot.addChannel(
             name="Counts",
-            x_channel=f"{self.wav_path[i]}.Time",
-            y_channel=f"{self.wav_path[i]}.WaveformData",
-            color=self.color[i],
+            x_channel=f"{self.wav_path}.Time",
+            y_channel=f"{self.wav_path}.WaveformData",
+            color=self.color,
             symbol="o",
             symbolSize=3,
         )
