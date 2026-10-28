@@ -2,7 +2,7 @@ import setupLibPaths # setup the runtime PYTHONPATH paths
 
 import argparse
 import pyrogue.pydm
-from axi_soc_7000_core.hardware.red_pitaya_stemlab_125_14.gui.GuiTop import GuiTop
+from abort_trigger_daq.gui.DevGuiTop import GuiTop
 
 
 def main():

@@ -1,6 +1,6 @@
 import pyrogue as pr
 
-import abort_trigger_daq_rpty_stmlb125_14 as rpty
+import abort_trigger_daq as app
 import surf.axi as axi
 
 
@@ -8,7 +8,7 @@ class Application(pr.Device):
     def __init__(self, n_adc_channels, clkFreq=125.0e6, **kwargs):
         super().__init__(**kwargs)
 
-        self.add(rpty.TestRegister(name="TestRegister", offset=0x0, hidden=False))
+        self.add(app.TestRegister(name="TestRegister", offset=0x0, hidden=False))
 
         offset_increment = 0x0100_0000
         offset = offset_increment
@@ -16,10 +16,10 @@ class Application(pr.Device):
             self.add(axi.AxiStreamRingBuffer(name=f"AxiStreamRingBuffer[{i}]", offset=offset, hidden=False))
             offset += offset_increment
 
-        self.add(rpty.RevSigCtrl(name="RevSigCtrl", offset=offset, clkFreq=clkFreq))
+        self.add(app.RevSigCtrl(name="RevSigCtrl", offset=offset, clkFreq=clkFreq))
         offset += offset_increment
 
-        self.add(rpty.AbortTrigs(name="AbortTrigs", offset=offset, clkFreq=clkFreq))
+        self.add(app.AbortTrigs(name="AbortTrigs", offset=offset, clkFreq=clkFreq))
         offset += offset_increment
 
         self.add(axi.AxiStreamFrameRateLimiter(name="FrameRateLimiter", offset=offset))

@@ -1,6 +1,6 @@
 import pyrogue as pr
 
-import abort_trigger_daq_rpty_stmlb125_14 as rpty
+import abort_trigger_daq as app
 
 
 class AbortTrigs(pr.Device):
@@ -235,13 +235,13 @@ class AbortTrigs(pr.Device):
         offset_increment = 0x0001_0000
         offset = offset_increment
         for i in range(n_adc_channels):
-            self.add(rpty.ThrTrig(name=f"ThrTrig[{i}]", offset=offset))
+            self.add(app.ThrTrig(name=f"ThrTrig[{i}]", offset=offset))
             offset += offset_increment
 
         for i in range(n_adc_channels):
-            self.add(rpty.TotTrig(name=f"TotTrig[{i}]", offset=offset, clkFreq=clkFreq))
+            self.add(app.TotTrig(name=f"TotTrig[{i}]", offset=offset, clkFreq=clkFreq))
             offset += offset_increment
 
         for i in range(n_adc_channels):
-            self.add(rpty.RevSyncIntTrig(name=f"RevSyncIntTrig[{i}]", offset=offset, clkFreq=clkFreq, numWnds=2))
+            self.add(app.RevSyncIntTrig(name=f"RevSyncIntTrig[{i}]", offset=offset, clkFreq=clkFreq, numWnds=2))
             offset += offset_increment

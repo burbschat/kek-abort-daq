@@ -1,7 +1,7 @@
 import pyrogue as pr
 
 import axi_soc_7000_core  as socCore
-import abort_trigger_daq_rpty_stmlb125_14 as target
+import abort_trigger_daq as app
 
 
 class Zynq7SoC(pr.Device):
@@ -13,7 +13,7 @@ class Zynq7SoC(pr.Device):
             hidden      = False,
         ))
 
-        self.add(target.Application(
+        self.add(app.Application(
             offset         = 0x2000_0000,
             n_adc_channels = n_adc_channels,
             clkFreq        = clkFreq,

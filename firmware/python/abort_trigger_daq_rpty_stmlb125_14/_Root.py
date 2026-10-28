@@ -10,7 +10,7 @@ import pyrogue.interfaces.stream
 import pyrogue.utilities.fileio
 import pyrogue.utilities.prbs
 
-import abort_trigger_daq_rpty_stmlb125_14 as target
+import abort_trigger_daq as app
 # import axi_soc_7000_core.hardware.HW_HERE as zynq_hw
 import axi_soc_7000_core as soc_core
 import axi_soc_7000_core.hardware.red_pitaya_stemlab_125_14 as hardware_core
@@ -72,7 +72,7 @@ class Root(pr.Root):
 
         # Added the RFSoC device
         self.add(
-            target.Zynq7SoC(
+            app.Zynq7SoC(
                 memBase=self.memMap,
                 offset=0x4000_0000,  # 32-bit address space
                 n_adc_channels=n_adc_channels,
@@ -123,7 +123,7 @@ class Root(pr.Root):
         # self.testStreamDropFifo >> self.dbg
 
         # Custom test (debug) slave
-        # self.testProcessor = target.TestProcessor()
+        # self.testProcessor = app.TestProcessor()
         # self.add(self.testProcessor)
         # self.adcDropFifo[0] >> self.testProcessor
 
