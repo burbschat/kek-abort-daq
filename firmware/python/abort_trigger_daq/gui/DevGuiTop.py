@@ -73,8 +73,11 @@ class GuiTop(Display):
         # dacDisplay = gui_core.LiveDisplay(parent=None, init_channel=Channel, dispType="Dac", numCh=self.numDacCh)
         # self.tab.addTab(dacDisplay, "DAC Waveforms")
 
-        adcDisplayTrigs = gui.WaveformDisplayTrigs(parent=None, init_channel=Channel, channel_idx=0)
-        self.tab.addTab(adcDisplayTrigs, "Trigs")
+        adcDisplayTrigs = gui.WaveformDisplayTrigs(parent=None, init_channel=Channel, channel_idx=0, trig_type="thr")
+        self.tab.addTab(adcDisplayTrigs, "ThrTrig")
+
+        adcDisplayTrigs = gui.WaveformDisplayTrigs(parent=None, init_channel=Channel, channel_idx=0, trig_type="tot")
+        self.tab.addTab(adcDisplayTrigs, "TotTrig")
 
         # Set the default Tab view
         self.tab.setCurrentIndex(2)

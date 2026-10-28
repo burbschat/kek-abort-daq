@@ -76,7 +76,7 @@ class PyDMWaveformPlotTrig(PyDMWaveformPlot):
         self.trig_delay = int(new_value)
         self.update_trig_line()
 
-    def update_trig_line(self):
+    def update_trig_line(self, *args):
         if not self.channel_pairs:
             return
 
@@ -202,24 +202,113 @@ class PyDMWaveformPlotThrTrig(PyDMWaveformPlotTrig):
         self.hyst_lower_line.setValue(self.thr - self.hyst)
 
 
+class PyDMWaveformPlotTotTrig(PyDMWaveformPlotThrTrig):
+    def __init__(
+        self,
+        thr_channel_addr,
+        hyst_channel_addr,
+        tot_window_channel_addr,
+        trig_delay_channel_addr,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(
+            thr_channel_addr,
+            hyst_channel_addr,
+            trig_delay_channel_addr,
+            *args,
+            **kwargs,
+        )
+
+        self.tot_window = 0
+
+        self.tot_region = pg.LinearRegionItem(
+            values=(0, 1),
+            orientation=pg.LinearRegionItem.Vertical,
+            brush=pg.mkBrush(255, 215, 0, 45),
+            movable=False,
+        )
+        self.tot_region.setZValue(-10)
+        self.tot_region.hide()
+
+        self.tot_window_channel = PyDMChannel(
+            address=tot_window_channel_addr,
+            value_slot=self.receive_value_tot_window,
+        )
+        self.tot_window_channel.connect()
+
+    def addChannel(self, *args, **kwargs):
+        super().addChannel(*args, **kwargs)
+
+        curve = next(iter(self.channel_pairs.values()))
+        curve.getViewBox().addItem(self.tot_region)
+
+        self.update_tot_region()
+
+    def receive_value_tot_window(self, new_value):
+        print("VALUE", new_value)
+        if new_value is None:
+            return
+
+        self.tot_window = max(0, int(new_value))
+        self.update_tot_region()
+
+    def update_trig_line(self, *args):
+        super().update_trig_line(*args)
+        self.update_tot_region()
+
+    def update_tot_region(self):
+        if not self.channel_pairs:
+            return
+
+        curve = next(iter(self.channel_pairs.values()))
+        x_data, _ = curve.getData()
+
+        if x_data is None or len(x_data) == 0:
+            return
+
+        trigger_index = len(x_data) - 1 - self.trig_delay
+
+        if not 0 <= trigger_index < len(x_data):
+            self.tot_region.hide()
+            return
+
+        start_index = max(0, trigger_index - self.tot_window)
+
+        self.tot_region.setRegion((x_data[start_index], x_data[trigger_index]))
+        self.tot_region.show()
+
+
 class WaveformDisplayTrigs(PyDMFrame):
-    def __init__(self, channel_idx=0, *args, **kwargs):
+    def __init__(self, channel_idx=0, trig_type="thr", *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         i = channel_idx
 
         self.color = "white"
         self.wav_path = f"{self.channel}.AdcProcessor[{i}]"
-        self.trig_path = f"{self.channel}.Zynq7SoC.Application.AbortTrigs.ThrTrig[{i}]"
 
         vb = QVBoxLayout()
         self.setLayout(vb)
 
-        self.timePlot = PyDMWaveformPlotThrTrig(
-            thr_channel_addr=f"{self.trig_path}.Threshold",
-            hyst_channel_addr=f"{self.trig_path}.Hysteresis",
-            trig_delay_channel_addr=f"{self.channel}.Zynq7SoC.Application.AbortTrigs.TrigDly",
-        )
+        if trig_type == "thr":
+            self.trig_path = f"{self.channel}.Zynq7SoC.Application.AbortTrigs.ThrTrig[{i}]"
+            self.timePlot = PyDMWaveformPlotThrTrig(
+                thr_channel_addr=f"{self.trig_path}.Threshold",
+                hyst_channel_addr=f"{self.trig_path}.Hysteresis",
+                trig_delay_channel_addr=f"{self.channel}.Zynq7SoC.Application.AbortTrigs.TrigDly",
+            )
+        elif trig_type == "tot":
+            self.trig_path = f"{self.channel}.Zynq7SoC.Application.AbortTrigs.TotTrig[{i}]"
+            self.timePlot = PyDMWaveformPlotTotTrig(
+                thr_channel_addr=f"{self.trig_path}.Threshold",
+                hyst_channel_addr=f"{self.trig_path}.Hysteresis",
+                tot_window_channel_addr=f"{self.trig_path}.TotCountTrig",
+                trig_delay_channel_addr=f"{self.channel}.Zynq7SoC.Application.AbortTrigs.TrigDly",
+            )
+        else:
+            raise ValueError(f"Unsupported trigger type: {trig_type}")
+
         self.timePlot.setLabel("bottom", text="Time (ns)")
 
         self.timePlot.addChannel(
