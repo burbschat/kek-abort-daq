@@ -14,10 +14,97 @@ import numpy as np
 import pyqtgraph as pg
 
 
-# Waveform plot but with indication for trigger settings
-class PyDMWaveformPlotThrTrig(PyDMWaveformPlot):
-    def __init__(self, thr_channel_addr, hyst_channel_addr, *args, **kwargs):
+class PyDMWaveformPlotTrig(PyDMWaveformPlot):
+    def __init__(self, trig_delay_channel_addr, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        self._trig_line_width = 2
+        self.trig_delay = 0
+
+        self._trig_line_pen_connected = pg.mkPen(
+            "yellow",
+            width=self._trig_line_width,
+            style=pg.QtCore.Qt.PenStyle.DashLine,
+        )
+        self._trig_line_pen_disconnected = pg.mkPen(
+            "magenta",
+            width=self._trig_line_width,
+            style=pg.QtCore.Qt.PenStyle.DotLine,
+        )
+
+        self.trig_line = pg.InfiniteLine(
+            pos=0,
+            angle=90,
+            pen=self._trig_line_pen_disconnected,
+            movable=False,
+        )
+        self.trig_line.hide()
+
+        self.trig_delay_channel = PyDMChannel(
+            address=trig_delay_channel_addr,
+            value_slot=self.receive_value_trig_delay,
+            connection_slot=self.trig_connection_state_changed,
+        )
+        self.trig_delay_channel.connect()
+
+    def addChannel(self, *args, **kwargs):
+        if self.channel_pairs:
+            raise RuntimeError("PyDMWaveformPlotTrig supports only one waveform per plot.")
+
+        super().addChannel(*args, **kwargs)
+
+        curve = next(iter(self.channel_pairs.values()))
+        # Recalculate whenever new waveform data arrives.
+        curve.sigPlotChanged.connect(self.update_trig_line)
+
+        curve.getViewBox().addItem(self.trig_line)
+
+        # Try immediately in case data is already available.
+        self.update_trig_line()
+
+    def foo(self):
+        self.update_trig_line()
+
+    def trig_connection_state_changed(self, connected):
+        pen = self._trig_line_pen_connected if connected else self._trig_line_pen_disconnected
+        self.trig_line.setPen(pen)
+
+    def receive_value_trig_delay(self, new_value):
+        if new_value is None:
+            return
+
+        self.trig_delay = int(new_value)
+        self.update_trig_line()
+
+    def update_trig_line(self):
+        if not self.channel_pairs:
+            return
+
+        curve = next(iter(self.channel_pairs.values()))
+        x_data, y_data = curve.getData()
+
+        if x_data is None or len(x_data) == 0:
+            return
+
+        trigger_index = len(x_data) - 1 - self.trig_delay
+
+        if 0 <= trigger_index < len(x_data):
+            self.trig_line.setValue(x_data[trigger_index])
+            self.trig_line.show()
+        else:
+            self.trig_line.hide()
+
+
+class PyDMWaveformPlotThrTrig(PyDMWaveformPlotTrig):
+    def __init__(
+        self,
+        thr_channel_addr,
+        hyst_channel_addr,
+        trig_delay_channel_addr,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(trig_delay_channel_addr, *args, **kwargs)
 
         self._thr_line_width = 2
         self.thr = 2**16 / 2
@@ -44,25 +131,22 @@ class PyDMWaveformPlotThrTrig(PyDMWaveformPlot):
             style=pg.QtCore.Qt.PenStyle.DotLine,
         )
 
-        # Threshold line
         self.thr_line = pg.InfiniteLine(
             pos=self.thr,
             angle=0,
             pen=self._thr_line_pen_disconnected,
             movable=False,
         )
-
-        # Hysteresis boundary lines
         self.hyst_upper_line = pg.InfiniteLine(
             pos=self.thr + self.hyst,
             angle=0,
-            pen=self._hyst_line_pen_connected,
+            pen=self._hyst_line_pen_disconnected,
             movable=False,
         )
         self.hyst_lower_line = pg.InfiniteLine(
             pos=self.thr - self.hyst,
             angle=0,
-            pen=self._hyst_line_pen_connected,
+            pen=self._hyst_line_pen_disconnected,
             movable=False,
         )
 
@@ -80,9 +164,7 @@ class PyDMWaveformPlotThrTrig(PyDMWaveformPlot):
         self.hyst_channel.connect()
 
     def addChannel(self, *args, **kwargs):
-        if self.channel_pairs:
-            raise RuntimeError("PyDMWaveformPlotThrTrig supports only one waveform per plot.")
-
+        # Base class creates the waveform and adds the trigger timing line.
         super().addChannel(*args, **kwargs)
 
         curve = next(iter(self.channel_pairs.values()))
@@ -95,9 +177,10 @@ class PyDMWaveformPlotThrTrig(PyDMWaveformPlot):
     def connection_state_changed(self, connected):
         thr_pen = self._thr_line_pen_connected if connected else self._thr_line_pen_disconnected
         hyst_pen = self._hyst_line_pen_connected if connected else self._hyst_line_pen_disconnected
+
         self.thr_line.setPen(thr_pen)
-        self.hyst_lower_line.setPen(hyst_pen)
         self.hyst_upper_line.setPen(hyst_pen)
+        self.hyst_lower_line.setPen(hyst_pen)
 
     def receive_value_thr(self, new_value):
         if new_value is None:
@@ -132,7 +215,9 @@ class WaveformDisplayTrigs(PyDMFrame):
         self.setLayout(vb)
 
         self.timePlot = PyDMWaveformPlotThrTrig(
-            thr_channel_addr=f"{self.trig_path[0]}.Threshold", hyst_channel_addr=f"{self.trig_path[0]}.Hysteresis"
+            thr_channel_addr=f"{self.trig_path[0]}.Threshold",
+            hyst_channel_addr=f"{self.trig_path[0]}.Hysteresis",
+            trig_delay_channel_addr=f"{self.channel}.Zynq7SoC.Application.AbortTrigs.TrigDly",
         )
         self.timePlot.setLabel("bottom", text="Time (ns)")
         # for i in range(self.numCh):
@@ -146,3 +231,5 @@ class WaveformDisplayTrigs(PyDMFrame):
             symbolSize=3,
         )
         vb.addWidget(self.timePlot)
+
+        self.timePlot.update_trig_line()
