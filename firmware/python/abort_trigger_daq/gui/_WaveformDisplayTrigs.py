@@ -246,7 +246,6 @@ class PyDMWaveformPlotTotTrig(PyDMWaveformPlotThrTrig):
         self.update_tot_region()
 
     def receive_value_tot_window(self, new_value):
-        print("VALUE", new_value)
         if new_value is None:
             return
 
